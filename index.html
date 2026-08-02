@@ -3,872 +3,806 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FUELSTOP — Perencana Titik Isi BBM</title>
-<meta name="description" content="Perencana titik isi BBM road trip: jumlah stop, jarak antar stop, konsumsi & biaya — dihitung real-time dengan strategi cadangan.">
+<title>Perencana Titik Isi BBM — Road Trip Fuel Stop Planner</title>
+<meta name="description" content="Hitung jumlah stop isi bensin, jarak antar stop, dan total konsumsi BBM untuk perjalananmu — langsung saat mengetik.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* ================= DASAR ================= */
+/* ============ DASAR & PALET ============ */
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#0d1218; --panel:#161d27; --panel2:#121821; --inset:#0c1117;
-  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.05);
-  --txt:#e9eef4; --txt2:#9aa8b6; --txt3:#5f6e7d;
-  --amber:#ffb02e; --amber2:#ffcf6b;
-  --green:#3ecf8e; --red:#ff6b57; --cyan:#5ac8ff; --teal:#4dd6c1;
-  --paper:#f3f1ea; --pinkes:#1c232b;
-  --disp:'Barlow Condensed',sans-serif;
-  --body:'IBM Plex Sans',system-ui,sans-serif;
-  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --asphalt:#31363c; --asphalt-d:#22262b; --asphalt-dd:#16191d;
+  --paint:#f6b73c;            /* cat kuning jalan */
+  --green:#0d7a4b; --green-d:#0a6b3b; --green-dd:#08452c;
+  --green-lt:#7ee0a4;
+  --red:#e2503c;
+  --sky:#bfe0f0;
+  --ink:#22282c; --paper:#eef1ec;
+  --line:#dde4e0; --mut:#6b7a86;
 }
 html{-webkit-text-size-adjust:100%}
-body{font-family:var(--body);color:var(--txt);background:var(--bg);min-height:100vh;overflow-x:hidden}
-::selection{background:var(--amber);color:#161006}
+body{
+  font-family:'Barlow',system-ui,sans-serif;
+  color:var(--ink);
+  background:var(--paper);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+/* pola titik halus di seluruh halaman */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:radial-gradient(rgba(13,122,75,.09) 1.2px, transparent 1.3px);
+  background-size:26px 26px;
+}
+::selection{background:var(--paint);color:var(--asphalt-dd)}
+h1,h2,h3,.ov{font-family:'Overpass',sans-serif}
 button{font-family:inherit}
-:focus-visible{outline:2.5px solid rgba(255,176,46,.75);outline-offset:2px;border-radius:6px}
+:focus-visible{outline:3px solid rgba(246,183,60,.7);outline-offset:2px;border-radius:6px}
 
-/* latar berlapis: gradasi + grid teknikal + pendar instrumen */
-.bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+/* ============ LANGIT AMBIENT ============ */
+.bgsky{
+  position:fixed;left:0;right:0;top:0;height:480px;z-index:0;pointer-events:none;
+  background:linear-gradient(180deg,var(--sky) 0%,#e3f0f3 58%,rgba(238,241,236,0) 100%);
+}
+.sun{
+  position:absolute;right:7%;top:44px;width:66px;height:66px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#ffe9a8,#ffd76a 60%,#ffc94d);
+  box-shadow:0 0 0 16px rgba(255,215,106,.22),0 0 70px rgba(255,190,80,.55);
+  animation:glow 5s ease-in-out infinite;
+}
+@keyframes glow{50%{box-shadow:0 0 0 24px rgba(255,215,106,.16),0 0 90px rgba(255,190,80,.7)}}
+.cloud{position:absolute;background:#fff;border-radius:40px;opacity:.9}
+.cloud::before,.cloud::after{content:'';position:absolute;background:#fff;border-radius:50%}
+.cloud.c1{width:96px;height:28px;top:52px;left:-160px;animation:drift 60s linear infinite}
+.cloud.c1::before{width:44px;height:44px;top:-20px;left:16px}
+.cloud.c1::after{width:30px;height:30px;top:-12px;left:52px}
+.cloud.c2{width:64px;height:20px;top:118px;left:-160px;opacity:.75;animation:drift 82s linear infinite;animation-delay:-34s}
+.cloud.c2::before{width:30px;height:30px;top:-14px;left:10px}
+.cloud.c2::after{width:20px;height:20px;top:-8px;left:36px}
+.cloud.c3{width:120px;height:32px;top:20px;left:-200px;opacity:.6;animation:drift 100s linear infinite;animation-delay:-70s}
+.cloud.c3::before{width:52px;height:52px;top:-24px;left:22px}
+.cloud.c3::after{width:36px;height:36px;top:-14px;left:66px}
+@keyframes drift{from{left:-220px}to{left:110%}}
+
+/* ============ HEADER: RAMBU JALAN TOL ============ */
+header{
+  position:relative;z-index:2;max-width:1180px;margin:0 auto;
+  padding:30px 28px 6px;
+  display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;
+}
+.sign{
+  display:flex;align-items:center;gap:18px;
+  background:linear-gradient(180deg,#0e8148,#0a6b3b);
+  border:3px solid #fff;border-radius:14px;
+  box-shadow:0 18px 34px -16px rgba(8,69,44,.55), inset 0 1px 0 rgba(255,255,255,.25);
+  padding:16px 22px 16px 18px;
+}
+.shield{
+  flex:none;width:66px;height:72px;position:relative;
+  background:#1f4f9c;border:3px solid #fff;border-radius:10px 10px 30px 30px;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:9px;
+  color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.3);
+}
+.shield::before{content:'';position:absolute;top:0;left:0;right:0;height:17px;background:#c8102e;border-radius:6px 6px 0 0}
+.shield span{font:900 20px/1 'Overpass';letter-spacing:.02em;margin-top:14px}
+.shield small{font:700 7.5px/1 'Overpass';letter-spacing:.18em;opacity:.85;margin-top:3px}
+.signtext h1{
+  color:#fff;font-weight:900;font-size:clamp(22px,3.2vw,34px);
+  letter-spacing:.01em;line-height:1.05;text-shadow:0 2px 0 rgba(0,0,0,.25);
+}
+.signtext p{color:rgba(255,255,255,.88);font-size:14.5px;margin-top:5px;max-width:56ch;font-weight:500}
+.exit{
+  flex:none;align-self:flex-start;margin-left:6px;
+  border:2px solid #fff;border-radius:8px;padding:6px 11px;text-align:center;
+  color:#fff;font:800 10.5px/1.5 'Overpass';letter-spacing:.14em;
+}
+.exit span{font-size:12px;letter-spacing:.06em}
+
+/* toggle satuan */
+.utoggle{
+  position:relative;display:grid;grid-template-columns:1fr 1fr;width:280px;
+  background:var(--asphalt-dd);border:1px solid #39424b;border-radius:12px;padding:5px;
+  box-shadow:0 10px 22px -12px rgba(20,30,40,.6);
+}
+.ubtn{
+  position:relative;z-index:1;background:none;border:0;cursor:pointer;
+  color:#9fb0bd;font:800 13px/1 'Overpass';letter-spacing:.1em;
+  padding:10px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  transition:color .25s;border-radius:8px;
+}
+.ubtn small{font:600 9.5px/1 'Barlow';letter-spacing:.03em;opacity:.75;text-transform:none}
+.ubtn.active{color:var(--asphalt-dd)}
+.uthumb{
+  position:absolute;top:5px;bottom:5px;left:5px;width:calc(50% - 5px);
+  background:linear-gradient(180deg,#ffd76a,var(--paint));border-radius:8px;
+  box-shadow:0 2px 8px rgba(0,0,0,.45);
+  transition:transform .3s cubic-bezier(.34,1.35,.5,1);
+}
+.utoggle.imp .uthumb{transform:translateX(0)}
+.utoggle.met .uthumb{transform:translateX(100%)}
+
+/* ============ JALAN (VISUAL UTAMA) ============ */
+.roadwrap{
+  position:relative;z-index:1;max-width:1180px;margin:6px auto 0;
+  padding:96px 30px 0;
+}
+.hills{
+  position:absolute;left:0;right:0;bottom:52px;height:150px;z-index:0;pointer-events:none;opacity:.85;
   background:
-    radial-gradient(900px 480px at 88% -8%, rgba(90,200,255,.07), transparent 62%),
-    radial-gradient(1100px 620px at 6% 112%, rgba(255,176,46,.06), transparent 60%),
-    linear-gradient(180deg,#111823,#0c1117 55%,#0e141b);}
-.bg::before{content:'';position:absolute;inset:0;
-  background-image:linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
-  background-size:46px 46px;
-  -webkit-mask-image:radial-gradient(120% 90% at 50% 0%,#000 30%,transparent 90%);
-          mask-image:radial-gradient(120% 90% at 50% 0%,#000 30%,transparent 90%);}
-.bg::after{content:'';position:absolute;inset:0;box-shadow:inset 0 0 180px rgba(0,0,0,.55)}
+    radial-gradient(52% 120px at 16% 100%, #b9d8a6 99%, transparent 100%),
+    radial-gradient(64% 150px at 55% 100%, #cfe3bd 99%, transparent 100%),
+    radial-gradient(58% 130px at 88% 100%, #a6cd93 99%, transparent 100%);
+}
+.roadhead{display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:16px;position:relative;z-index:2;flex-wrap:wrap}
+.roadhead h2{font-weight:900;font-size:15px;letter-spacing:.22em;color:#3c4a55}
+.live{display:inline-flex;align-items:center;gap:7px;font:600 12.5px 'Barlow';color:var(--green-d);margin-left:12px;letter-spacing:.02em}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(13,122,75,.5);animation:pulse 1.8s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(13,122,75,0)}100%{box-shadow:0 0 0 0 rgba(13,122,75,0)}}
+.routechip{
+  font:700 13px 'Overpass';color:var(--green-dd);
+  background:#fff;border:1.5px solid var(--green);border-radius:999px;padding:6px 14px;
+  box-shadow:0 6px 14px -8px rgba(8,69,44,.5);transition:transform .2s;
+}
+.routechip:hover{transform:translateY(-1px)}
 
-/* ================= TOPBAR ================= */
-.topbar{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center;gap:16px;
-  padding:13px 28px;background:linear-gradient(180deg,rgba(13,18,24,.97),rgba(13,18,24,.93));border-bottom:1px solid var(--line2)}
-.brand{display:flex;align-items:center;gap:12px;color:var(--amber)}
-.brand svg{width:34px;height:38px;flex:none;filter:drop-shadow(0 0 10px rgba(255,176,46,.35))}
-.bname{font:800 22px/1 var(--disp);letter-spacing:.14em;color:var(--txt)}
-.bname em{font-style:normal;color:var(--amber)}
-.bsub{display:block;font:600 8.5px var(--mono);letter-spacing:.3em;color:var(--txt3);margin-top:3px}
-.seg{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--inset);border:1px solid #263140;border-radius:10px;padding:4px;min-width:230px}
-.sbtn{position:relative;z-index:1;background:none;border:0;cursor:pointer;padding:8px 12px 7px;
-  font:600 11px var(--mono);letter-spacing:.18em;color:var(--txt3);transition:color .25s;border-radius:7px}
-.sbtn span{display:block;font-size:8px;letter-spacing:.1em;opacity:.75;margin-top:2px;text-transform:none}
-.sbtn.active{color:#171004}
-.sthumb{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:7px;
-  background:linear-gradient(180deg,var(--amber2),var(--amber));box-shadow:0 2px 10px rgba(255,176,46,.4);
-  transition:transform .3s cubic-bezier(.34,1.35,.5,1)}
-.seg.met .sthumb{transform:translateX(100%)}
-
-/* ================= WRAP ================= */
-.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:24px 28px 0}
-
-/* ================= CLUSTER (INSTRUMEN + RUTE) ================= */
-.cluster{position:relative;background:linear-gradient(180deg,#1a222e,#141b24);border:1px solid var(--line);border-radius:16px;
-  box-shadow:0 40px 80px -40px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.05);overflow:hidden;
-  animation:rise .7s cubic-bezier(.22,.9,.3,1) both}
-.cluster::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;z-index:2;
-  background:linear-gradient(90deg,var(--amber),var(--green) 45%,var(--cyan))}
-@keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
-.cluster-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:20px 28px 0}
-.ovl{font:600 10.5px var(--mono);letter-spacing:.3em;color:var(--txt3)}
-.live{display:inline-flex;align-items:center;gap:7px;font:600 10.5px var(--mono);letter-spacing:.22em;color:var(--green);margin-left:14px}
-.live i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 9px var(--green);animation:blink 1.6s infinite}
-@keyframes blink{50%{opacity:.3}}
-.routechip{font:500 12px var(--mono);color:var(--txt2);background:var(--inset);border:1px solid var(--line);border-radius:999px;padding:7px 15px}
-.routechip b{color:var(--amber2);font-weight:600}
-
-.cluster-grid{display:grid;grid-template-columns:250px 1fr;gap:14px 40px;padding:16px 28px 26px;align-items:center}
-
-/* --- gauge bensin --- */
-.gauge{position:relative;width:232px;max-width:100%;margin:auto}
-.gauge svg{width:100%;height:auto;display:block}
-#gArc{transition:stroke-dasharray .7s cubic-bezier(.3,1,.3,1),opacity .3s;filter:drop-shadow(0 0 7px currentColor)}
-#gNeedle{transform-box:view-box;transform-origin:100px 100px;transition:transform .85s cubic-bezier(.34,1.3,.35,1)}
-.gcenter{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:16px;text-align:center;pointer-events:none}
-.gpct{font:700 46px/1 var(--disp);letter-spacing:.01em;transition:color .3s}
-.gpct small{font-size:22px;color:var(--txt2)}
-.gpct.ok{color:var(--green)} .gpct.mid{color:var(--amber2)} .gpct.low{color:var(--red)}
-.glabel{font:600 9px var(--mono);letter-spacing:.34em;color:var(--txt3);margin-top:5px}
-.grange{margin-top:10px;font:500 11.5px var(--mono);color:var(--green);background:rgba(62,207,142,.09);
-  border:1px solid rgba(62,207,142,.28);padding:4px 10px;border-radius:6px;transition:.3s;white-space:nowrap}
-.grange.low{color:var(--amber2);background:rgba(255,176,46,.09);border-color:rgba(255,176,46,.32)}
-.grange.bad{color:var(--red);background:rgba(255,107,87,.09);border-color:rgba(255,107,87,.35)}
-
-/* --- readout utama --- */
-.readouts{display:flex;flex-direction:column;gap:18px;min-width:0}
-.mainread{display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap}
-.mr-num{font:800 clamp(72px,9vw,112px)/.82 var(--disp);color:var(--amber);letter-spacing:-.01em;
-  text-shadow:0 0 34px rgba(255,176,46,.35);transition:color .3s}
-.mr-num.zero{color:var(--green);text-shadow:0 0 34px rgba(62,207,142,.35)}
-.mr-num.dim{color:var(--txt3);text-shadow:none}
-.mr-num span{display:inline-block;animation:bump .5s cubic-bezier(.3,1.4,.4,1)}
-@keyframes bump{0%{transform:translateY(16px);opacity:0}60%{transform:translateY(-4px)}100%{transform:none;opacity:1}}
-.mr-side{padding-bottom:4px;min-width:0}
-.mr-label{font:600 11px var(--mono);letter-spacing:.32em;color:var(--txt3)}
-.mr-note{font:400 14px/1.55 var(--body);color:var(--txt2);margin-top:7px;max-width:52ch}
-.mr-note b{color:var(--txt);font-weight:600}
-.ro-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.ro{background:var(--inset);border:1px solid var(--line2);border-left:3px solid var(--amber);border-radius:10px;
-  padding:12px 14px;transition:transform .2s,background .2s}
-.ro:hover{transform:translateY(-2px);background:#0e141b}
-.ro.g{border-left-color:var(--green)} .ro.c{border-left-color:var(--cyan)} .ro.t{border-left-color:var(--teal)}
-.ro .k{font:600 9.5px var(--mono);letter-spacing:.2em;color:var(--txt3)}
-.ro .v{font:700 26px/1.1 var(--disp);margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.ro .v small{font:600 13px var(--disp);color:var(--txt2);margin-left:3px;letter-spacing:.04em}
-.ro .s{font:400 11.5px/1.4 var(--body);color:var(--txt3);margin-top:3px}
-
-/* --- jalan --- */
-.route{position:relative;background:#0a0e13;border-top:1px solid var(--line2);padding:46px 30px 28px}
-.legend{position:absolute;top:15px;right:30px;display:flex;gap:18px;font:500 10.5px var(--mono);letter-spacing:.05em;color:var(--txt3)}
-.legend i{display:inline-block;vertical-align:-1px;margin-right:6px}
-.legend .sw{width:16px;height:8px;border-radius:2px;background:linear-gradient(90deg,rgba(62,207,142,.5),rgba(62,207,142,.08));border-right:2px solid var(--green)}
-.legend .dt{width:9px;height:9px;border-radius:50%;border:2px solid var(--amber)}
-.road{position:relative;height:88px;border-radius:8px;
-  background:linear-gradient(180deg,#2c343f,#1e242d 60%,#1a2028);
-  box-shadow:inset 0 2px 0 rgba(255,255,255,.05), inset 0 -8px 16px rgba(0,0,0,.4), 0 16px 30px -14px rgba(0,0,0,.65)}
-.road::before,.road::after{content:'';position:absolute;left:12px;right:12px;height:3px;border-radius:2px;background:rgba(233,230,218,.4);z-index:2}
-.road::before{top:8px}.road::after{bottom:8px}
-.lane{position:absolute;left:16px;right:16px;top:50%;height:5px;transform:translateY(-50%);border-radius:3px;z-index:2;opacity:.85;
-  background:repeating-linear-gradient(90deg,var(--amber) 0 26px,transparent 26px 52px);animation:dash 1s linear infinite}
-@keyframes dash{to{background-position:-52px 0}}
-.reach{position:absolute;left:0;top:0;bottom:0;width:0%;z-index:1;border-radius:8px 0 0 8px;
-  background:linear-gradient(90deg,rgba(62,207,142,.30),rgba(62,207,142,.05));
-  border-right:2px solid rgba(62,207,142,.9);box-shadow:inset 0 0 20px -6px rgba(62,207,142,.5);
-  transition:width .6s cubic-bezier(.25,.9,.3,1)}
-.reachtag{position:absolute;top:-32px;transform:translateX(-50%);z-index:6;white-space:nowrap;
-  font:500 10.5px var(--mono);color:var(--green);background:rgba(62,207,142,.08);
-  border:1px solid rgba(62,207,142,.3);padding:3px 9px;border-radius:5px;
-  transition:left .6s cubic-bezier(.25,.9,.3,1),opacity .3s}
-.car{position:absolute;left:10px;top:18px;width:54px;z-index:5}
-.car svg{display:block;animation:bob 2.6s ease-in-out infinite;filter:drop-shadow(0 4px 6px rgba(0,0,0,.55))}
+.road{
+  position:relative;z-index:1;height:112px;border-radius:10px;
+  background:linear-gradient(180deg,#3d434a,#2b3036 55%,#252a2f);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.07), inset 0 -8px 14px rgba(0,0,0,.35), 0 18px 34px -14px rgba(30,40,50,.5);
+}
+.road::before,.road::after{ /* garis tepi jalan */
+  content:'';position:absolute;left:14px;right:14px;height:4px;border-radius:3px;
+  background:#e9e6da;opacity:.85;z-index:2;
+}
+.road::before{top:10px}
+.road::after{bottom:10px}
+.lane{ /* garis tengah putus-putus yang berjalan */
+  position:absolute;left:18px;right:18px;top:50%;height:6px;transform:translateY(-50%);
+  border-radius:3px;z-index:2;opacity:.95;
+  background:repeating-linear-gradient(90deg,var(--paint) 0 34px,transparent 34px 68px);
+  animation:dash 1.1s linear infinite;
+}
+@keyframes dash{to{background-position:-68px 0}}
+.reach{ /* zona jangkauan bensin saat ini */
+  position:absolute;left:0;top:0;bottom:0;width:0%;z-index:1;
+  background:linear-gradient(90deg,rgba(126,224,164,.32),rgba(126,224,164,.10));
+  border-right:3px solid rgba(126,224,164,.95);
+  border-radius:10px 0 0 10px;
+  transition:width .55s cubic-bezier(.22,.9,.3,1);
+}
+.reachlabel{
+  position:absolute;top:-34px;transform:translateX(-50%);z-index:5;
+  font:700 12.5px 'Overpass';color:var(--green-dd);white-space:nowrap;
+  background:rgba(255,255,255,.92);border:1.5px solid var(--green);
+  border-radius:7px;padding:4px 9px;box-shadow:0 5px 12px -6px rgba(8,69,44,.5);
+  transition:left .55s cubic-bezier(.22,.9,.3,1), opacity .3s;
+}
+.car{position:absolute;left:8px;top:16px;z-index:4;width:62px;transition:filter .3s}
+.car svg{display:block;animation:bob 2.4s ease-in-out infinite;filter:drop-shadow(0 5px 4px rgba(0,0,0,.35))}
 @keyframes bob{50%{transform:translateY(-2.5px)}}
-.car.zoom svg{animation:bob 2.6s ease-in-out infinite,zoom .5s ease}
+.car.zoom svg{animation:bob 2.4s ease-in-out infinite, zoom .5s ease}
 @keyframes zoom{30%{transform:translateX(9px)}}
-.beam{position:absolute;left:96%;top:11px;width:52px;height:18px;
-  background:linear-gradient(90deg,rgba(255,214,120,.32),transparent 85%);
-  clip-path:polygon(0 42%,100% 0,100% 100%,0 62%)}
-.ep{position:absolute;top:50%;transform:translate(-50%,-50%);z-index:4}
-.ep .d{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:700 15px var(--disp);box-shadow:0 4px 12px rgba(0,0,0,.55)}
-.ep.start{left:0}
-.ep.start .d{background:var(--green);color:#071018;border:2.5px solid rgba(255,255,255,.9)}
-.ep.start.pre .d{background:var(--red);color:#1c0b07;animation:prePulse 1.4s infinite}
-@keyframes prePulse{0%{box-shadow:0 0 0 0 rgba(255,107,87,.6)}100%{box-shadow:0 0 0 15px rgba(255,107,87,0)}}
-.ep.finish{left:100%}
-.ep.finish .d{background:repeating-conic-gradient(#0c1015 0 25%,#e9eef4 0 50%) 0 0/10px 10px;border:2.5px solid #0c1015;outline:2px solid rgba(255,255,255,.35)}
-.ep .lb{position:absolute;top:41px;left:50%;transform:translateX(-50%);font:600 9px var(--mono);letter-spacing:.26em;color:var(--txt3);white-space:nowrap}
-.stopm{position:absolute;top:50%;transform:translate(-50%,-50%);z-index:4;transition:left .6s cubic-bezier(.25,.9,.3,1)}
-.stopm .d{width:30px;height:30px;border-radius:50%;background:#10151c;border:2.5px solid var(--amber);color:var(--amber2);
-  display:grid;place-items:center;font:700 14px var(--disp);cursor:default;
-  box-shadow:0 0 14px -2px rgba(255,176,46,.5),0 4px 10px rgba(0,0,0,.5);transition:transform .2s}
-.stopm .d:hover{transform:scale(1.16)}
-.stopm.pop .d{animation:pop .5s cubic-bezier(.3,1.5,.5,1)}
-@keyframes pop{0%{transform:scale(.1)}70%{transform:scale(1.22)}100%{transform:scale(1)}}
-.stopm .tt{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%) translateY(4px);z-index:9;
-  background:#0c1117;border:1px solid var(--line);color:var(--txt2);font:500 11px var(--mono);
-  padding:6px 10px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:.2s}
-.stopm .tt::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#0c1117}
-.stopm:hover .tt{opacity:1;transform:translateX(-50%)}
-.stopm .tt b{color:var(--amber2)}
-.ticks{position:relative;height:26px;margin-top:10px;font:500 10.5px var(--mono);color:var(--txt3)}
-.ticks span{position:absolute;top:0;padding-top:9px;white-space:nowrap}
-.ticks span::before{content:'';position:absolute;top:0;width:1px;height:5px;background:var(--txt3);opacity:.7}
-.ticks .tm{transform:translateX(-50%)}.ticks .tm::before{left:50%}
-.ticks .t0{transform:none}.ticks .t0::before{left:0}
-.ticks .t4{transform:translateX(-100%)}.ticks .t4::before{left:100%}
 
-/* ================= KOLOM ================= */
-.cols{display:grid;grid-template-columns:392px 1fr;gap:22px;margin-top:22px;align-items:start}
+.endp{position:absolute;top:50%;transform:translate(-50%,-50%);z-index:3}
+.endp .disc{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font:900 17px 'Overpass';box-shadow:0 6px 14px -4px rgba(0,0,0,.5)}
+.endp.start{left:0}
+.endp.start .disc{background:var(--green);color:#fff;border:3px solid #fff}
+.endp.finish{left:100%}
+.endp.finish .disc{
+  border:3px solid var(--asphalt-dd);
+  background:repeating-conic-gradient(#1c1f23 0 25%,#fff 0 50%) 0 0/12px 12px;
+}
+.endp .lbl{
+  position:absolute;top:46px;left:50%;transform:translateX(-50%);
+  font:800 10.5px 'Overpass';letter-spacing:.16em;color:#41505c;
+  background:rgba(255,255,255,.85);padding:3px 9px;border-radius:5px;white-space:nowrap;
+}
+.stopm{position:absolute;top:50%;transform:translate(-50%,-50%);z-index:3;transition:left .55s cubic-bezier(.22,.9,.3,1)}
+.stopm .disc{
+  width:38px;height:38px;border-radius:50%;background:#fff;border:3px solid var(--green-d);
+  display:grid;place-items:center;font:800 15px 'Overpass';color:var(--green-dd);
+  box-shadow:0 6px 14px -4px rgba(0,0,0,.5);position:relative;cursor:default;
+  transition:transform .2s;
+}
+.stopm .disc:hover{transform:scale(1.12)}
+.stopm .disc::after{ /* pump mini di pojok */
+  content:'⛽';position:absolute;top:-15px;right:-11px;font-size:11px;
+  background:#fff;border:2px solid var(--paint);border-radius:50%;padding:2px;line-height:1;
+}
+.stopm.pop .disc{animation:pop .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{0%{transform:scale(.15)}70%{transform:scale(1.18)}100%{transform:scale(1)}}
+.stopm .tt{
+  position:absolute;bottom:calc(100% + 13px);left:50%;transform:translateX(-50%) translateY(5px);
+  background:var(--asphalt-dd);color:#fff;font:600 12px 'Barlow';
+  padding:5px 10px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;
+  transition:.22s;
+}
+.stopm .tt::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--asphalt-dd)}
+.stopm:hover .tt{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.below{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px;font:600 13px 'Barlow';color:#54636f;position:relative;z-index:2}
+.below b{font-family:'Overpass';color:var(--green-dd)}
+.legend{display:flex;gap:18px}
+.legend span{display:inline-flex;align-items:center;gap:7px;font-size:12px}
+.legend .sw{width:20px;height:10px;border-radius:3px;background:linear-gradient(90deg,rgba(126,224,164,.55),rgba(126,224,164,.15));border-right:2px solid var(--green-lt)}
+.legend .dt{width:12px;height:12px;border-radius:50%;background:#fff;border:2.5px solid var(--green-d)}
+
+/* ============ GRID: DASBOR & HASIL ============ */
+.grid{
+  position:relative;z-index:1;max-width:1180px;margin:34px auto 0;
+  padding:0 28px;display:grid;grid-template-columns:400px 1fr;gap:22px;align-items:start;
+}
 
 /* --- konsol input --- */
-.console{position:relative;background:linear-gradient(180deg,#171e28,#131a23);border:1px solid var(--line);border-radius:14px;
-  padding:24px 24px 18px;overflow:hidden}
-.console::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;opacity:.55;
-  background:repeating-linear-gradient(-45deg,var(--amber) 0 10px,transparent 10px 20px)}
-.console h2{font:700 26px/1 var(--disp);letter-spacing:.03em;margin-top:4px}
-.csub{font:400 13px var(--body);color:var(--txt3);margin-top:6px}
-.field{margin-top:20px}
-.frow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
-.frow label{font:600 10.5px var(--mono);letter-spacing:.2em;color:var(--txt2);text-transform:uppercase}
-.opt{font:600 8.5px var(--mono);letter-spacing:.14em;color:var(--txt3);border:1px solid var(--line);border-radius:4px;padding:2px 6px;margin-left:8px;vertical-align:2px}
-.fval{font:700 20px var(--disp);color:var(--green);font-variant-numeric:tabular-nums;transition:color .3s}
-.fval.mid{color:var(--amber2)} .fval.low{color:var(--red)} .fval.am{color:var(--amber2)}
-.numbox{display:flex;align-items:baseline;gap:7px;background:var(--inset);border:1px solid #263140;border-radius:8px;
-  padding:7px 11px;transition:border-color .2s,box-shadow .2s}
-.numbox:focus-within{border-color:var(--amber);box-shadow:0 0 0 3px rgba(255,176,46,.14)}
-.numbox.flash{border-color:var(--amber);box-shadow:0 0 0 4px rgba(255,176,46,.24)}
-.numbox input{background:none;border:0;outline:0;width:78px;text-align:right;color:var(--txt);
-  font:600 15px var(--mono);font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield}
-.numbox input::-webkit-outer-spin-button,.numbox input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.numbox .u{font:600 10.5px var(--mono);color:var(--amber);letter-spacing:.04em;white-space:nowrap}
-input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:3px;
-  background:linear-gradient(90deg,var(--amber) 0 var(--fill,50%),#2a3441 var(--fill,50%) 100%)}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;margin-top:-6.5px;
-  background:var(--amber);border:3.5px solid #10151c;box-shadow:0 0 0 1.5px rgba(255,176,46,.55),0 2px 6px rgba(0,0,0,.6);transition:transform .15s}
-input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
-input[type=range]::-moz-range-track{height:4px;border-radius:3px;background:#2a3441}
-input[type=range]::-moz-range-progress{height:4px;border-radius:3px;background:var(--amber)}
-input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:var(--amber);border:3.5px solid #10151c;
-  box-shadow:0 0 0 1.5px rgba(255,176,46,.55)}
-.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
-.chip{font:500 11.5px var(--mono);color:var(--txt2);background:var(--inset);border:1px solid #263140;border-radius:999px;
-  padding:6px 12px;cursor:pointer;transition:.18s}
-.chip:hover{color:#171004;background:var(--amber);border-color:var(--amber);transform:translateY(-2px);box-shadow:0 6px 14px -6px rgba(255,176,46,.6)}
-.assum{margin-top:22px;padding-top:14px;border-top:1px dashed #263140;font:400 11.5px/1.75 var(--body);color:var(--txt3)}
-.assum b{color:var(--txt2);font-weight:600}
-
-/* --- detail --- */
-.notices{display:grid;gap:10px;margin-bottom:14px}
-.notices:empty{margin:0}
-.notice{display:flex;gap:10px;align-items:flex-start;padding:12px 15px;border-radius:10px;border:1px solid;
-  font:500 13.5px/1.55 var(--body);animation:slidein .35s ease}
-@keyframes slidein{from{opacity:0;transform:translateY(-6px)}}
-.notice.warn{background:rgba(255,176,46,.08);border-color:rgba(255,176,46,.32);color:var(--amber2)}
-.notice.bad{background:rgba(255,107,87,.08);border-color:rgba(255,107,87,.38);color:#ffb3a6}
-.notice b{font-weight:600}
-
-/* manifest (kertas perjalanan) */
-.manifest{position:relative;background:var(--paper);color:var(--pinkes);border-radius:14px;padding:24px 24px 16px;
-  box-shadow:0 26px 55px -28px rgba(0,0,0,.75)}
-.manifest::before{content:'';position:absolute;top:0;left:24px;right:24px;height:4px;border-radius:0 0 4px 4px;
-  background:repeating-linear-gradient(-45deg,#1f262e 0 9px,var(--amber) 9px 18px)}
-.mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:8px 0 12px;flex-wrap:wrap}
-.mhead .mono{font:600 9.5px var(--mono);letter-spacing:.3em;color:#8a8f94;display:block;margin-bottom:5px}
-.mhead h3{font:700 24px/1 var(--disp);letter-spacing:.03em}
-.copybtn{font:600 10.5px var(--mono);letter-spacing:.12em;color:var(--pinkes);background:transparent;
-  border:1.5px solid var(--pinkes);border-radius:7px;padding:8px 13px;cursor:pointer;transition:.18s}
-.copybtn:hover{background:var(--pinkes);color:var(--paper)}
-.copybtn.ok{background:var(--green);border-color:var(--green);color:#07130c}
-.mrow{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto auto;gap:14px;align-items:baseline;
-  padding:10px 4px;border-bottom:1.5px dashed #d8d4c8;font:500 13.5px var(--body);transition:background .15s}
-.mrow:hover{background:rgba(31,38,46,.05)}
-.mrow.head{font:600 9.5px var(--mono);letter-spacing:.18em;color:#8a8f94;border-bottom:2px solid var(--pinkes);padding-bottom:7px}
-.mrow.head:hover{background:none}
-.mbadge{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:700 12px var(--disp);transform:translateY(4px)}
-.mb-s,.mb-e{background:#1f262e;color:#fff}
-.mb-a{background:var(--amber);color:#231a05}
-.mb-r{background:#e2503c;color:#fff}
-.mdesc{min-width:0}
-.mdesc b{font-weight:600}
-.mdesc small{display:block;font-size:11.5px;color:#8a8f94;margin-top:1px}
-.mnum{font:600 13px var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;min-width:72px}
-.mnum.add{color:#a36a08}
-.mnum.cost{color:#20714f;min-width:96px}
-.mtotal{display:flex;justify-content:flex-end;gap:28px;flex-wrap:wrap;padding:13px 4px 4px;font:600 13px var(--mono);color:var(--pinkes)}
-.mtotal .lab{color:#8a8f94;font-weight:500}
-
-/* grafik pengisian */
-.chart{margin-top:18px;padding-top:16px;border-top:2px solid var(--pinkes)}
-.chart h4{font:600 9.5px var(--mono);letter-spacing:.3em;color:#8a8f94}
-.bars{display:flex;align-items:flex-end;gap:10px;height:132px;margin-top:12px}
-.bar{flex:1;max-width:66px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px}
-.bar i{display:block;width:100%;min-height:3px;border-radius:5px 5px 2px 2px;background:var(--amber);
-  box-shadow:inset 0 -3px 0 rgba(0,0,0,.16);transition:height .6s cubic-bezier(.25,.9,.3,1)}
-.bar.now i{background:#3fae7c} .bar.left i{background:#b9bec4}
-.bar b{font:600 10.5px var(--mono);color:var(--pinkes)}
-.bar span{font:500 8.5px var(--mono);letter-spacing:.1em;color:#8a8f94}
-.chart .cnote{font:500 11px var(--mono);color:#8a8f94;margin-top:10px}
-
-/* metode */
-.method{margin-top:16px;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
-.method summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;
-  padding:14px 18px;font:600 11px var(--mono);letter-spacing:.24em;color:var(--txt2);transition:color .2s}
-.method summary:hover{color:var(--txt)}
-.method summary::-webkit-details-marker{display:none}
-.method summary::after{content:'+';font:600 17px var(--mono);color:var(--amber);transition:transform .25s}
-.method[open] summary::after{transform:rotate(45deg)}
-.method .inner{padding:0 18px 16px;font:400 13px/1.85 var(--body);color:var(--txt2)}
-.method ul{padding-left:18px}
-.method code{font:500 11.5px var(--mono);color:var(--amber2);background:rgba(255,176,46,.08);padding:1px 6px;border-radius:4px}
-
-footer{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:30px auto 46px;
-  font:500 11.5px var(--mono);color:var(--txt3);letter-spacing:.03em}
-
-/* reveal saat scroll */
-.rv{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s cubic-bezier(.22,.9,.3,1)}
-.rv.in{opacity:1;transform:none}
-
-/* ================= RESPONSIF ================= */
-@media (max-width:1080px){.cols{grid-template-columns:1fr}}
-@media (max-width:920px){
-  .cluster-grid{grid-template-columns:1fr;gap:8px}
-  .ro-grid{grid-template-columns:1fr 1fr}
+.console{
+  position:relative;background:linear-gradient(180deg,#272c33,#1c2025);
+  border-radius:14px;padding:26px 24px 20px;color:#e8ecef;overflow:hidden;
+  box-shadow:0 24px 44px -22px rgba(20,30,40,.55), inset 0 1px 0 rgba(255,255,255,.08);
 }
-@media (max-width:700px){.legend{display:none}}
-@media (max-width:640px){
-  .wrap{padding:18px 16px 0}.topbar{padding:12px 16px}
-  .cluster-head,.route{padding-left:18px;padding-right:18px}
-  .cluster-grid{padding:14px 18px 22px}
-  .mrow{grid-template-columns:30px minmax(0,1fr) auto}
-  .mnum.cost{display:none}
-  .bsub{display:none}.seg{min-width:190px}
+.console::before{ /* garis hazard kuning-hitam */
+  content:'';position:absolute;top:0;left:0;right:0;height:7px;
+  background:repeating-linear-gradient(45deg,var(--paint) 0 12px,var(--asphalt-d) 12px 24px);
+}
+.console h2{font-weight:900;font-size:14px;letter-spacing:.24em;color:#fff}
+.console .sub{font:500 13px 'Barlow';color:#8fa0ad;margin-top:4px}
+.field{margin-top:20px}
+.frow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.frow label{font:700 11.5px 'Overpass';letter-spacing:.14em;color:#9fb0bd;text-transform:uppercase}
+.numwrap{
+  display:flex;align-items:center;gap:8px;background:#12161a;border:1.5px solid #39424b;
+  border-radius:9px;padding:6px 11px;min-width:132px;
+  transition:border-color .2s, box-shadow .2s;
+}
+.numwrap:focus-within{border-color:var(--paint);box-shadow:0 0 0 3px rgba(246,183,60,.18)}
+.numwrap.flash{border-color:var(--paint);box-shadow:0 0 0 4px rgba(246,183,60,.28)}
+.numwrap input{
+  background:none;border:0;outline:none;color:#fff;width:74px;text-align:right;
+  font:700 18px 'Overpass';font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield;
+}
+.numwrap input::-webkit-outer-spin-button,.numwrap input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.numwrap .unit{font:800 12px 'Overpass';color:var(--paint);letter-spacing:.03em;white-space:nowrap}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;cursor:pointer;margin-top:6px}
+input[type=range]::-webkit-slider-runnable-track{
+  height:6px;border-radius:4px;
+  background:linear-gradient(90deg,var(--paint) 0 var(--fill,50%),#39424b var(--fill,50%) 100%);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:20px;height:20px;border-radius:50%;margin-top:-7px;
+  background:#fff;border:4px solid var(--paint);box-shadow:0 2px 6px rgba(0,0,0,.55);
+  transition:transform .15s;
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.18)}
+input[type=range]::-moz-range-track{height:6px;border-radius:4px;background:#39424b}
+input[type=range]::-moz-range-progress{height:6px;border-radius:4px;background:var(--paint)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#fff;border:4px solid var(--paint);box-shadow:0 2px 6px rgba(0,0,0,.55)}
+
+/* gauge bensin */
+.gauge{display:flex;align-items:center;gap:12px;margin-top:10px}
+.tankbox{position:relative;width:150px;height:28px;border:2.5px solid #4a545e;border-radius:7px;background:#12161a;overflow:visible}
+.tankbox .inner{position:absolute;inset:0;border-radius:4px;overflow:hidden}
+.tankbox .liq{position:absolute;left:0;top:0;bottom:0;width:70%;background:linear-gradient(90deg,#2fbf71,var(--green-lt));transition:width .3s, background .3s}
+.tankbox .tick{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.16)}
+.tankbox::after{content:'';position:absolute;right:-9px;top:7px;width:7px;height:12px;background:#4a545e;border-radius:0 3px 3px 0}
+.lvlpct{font:900 24px 'Overpass';color:var(--green-lt);font-variant-numeric:tabular-nums;transition:color .3s;min-width:64px}
+.lvlpct.mid{color:var(--paint)} .lvlpct.low{color:#ff8a75}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{
+  font:600 12px 'Barlow';color:#cfe0ea;background:#2c343c;border:1.5px solid #45505b;
+  padding:6px 12px;border-radius:999px;cursor:pointer;transition:.18s;
+}
+.chip:hover{background:var(--green);border-color:var(--green);color:#fff;transform:translateY(-2px);box-shadow:0 6px 12px -6px rgba(13,122,75,.7)}
+.console .foot-note{margin-top:22px;padding-top:14px;border-top:1px dashed #39424b;font:500 12.5px 'Barlow';color:#8fa0ad}
+.console .foot-note b{color:var(--paint)}
+
+/* --- papan hasil --- */
+.board{display:grid;gap:14px}
+.herostat{
+  position:relative;display:flex;align-items:center;gap:24px;flex-wrap:wrap;
+  background:linear-gradient(180deg,#272c33,#1c2025);border-radius:14px;
+  padding:22px 26px;color:#fff;border-left:7px solid var(--green);
+  box-shadow:0 24px 44px -22px rgba(20,30,40,.55), inset 0 1px 0 rgba(255,255,255,.08);
+  overflow:hidden;
+}
+.herostat::after{content:'⛽';position:absolute;right:18px;bottom:-14px;font-size:88px;opacity:.07;transform:rotate(-8deg)}
+.odo{display:flex;gap:6px}
+.odo .digit{
+  background:#0e1114;border:1.5px solid #39424b;border-radius:9px;
+  min-width:58px;padding:12px 8px;text-align:center;
+  font:900 52px/1 'Overpass';color:#ffd76a;font-variant-numeric:tabular-nums;
+  text-shadow:0 0 20px rgba(255,215,106,.4);
+  box-shadow:inset 0 -10px 14px rgba(0,0,0,.55), inset 0 2px 0 rgba(255,255,255,.06);
+  animation:bump .45s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes bump{0%{transform:scale(.7)}60%{transform:scale(1.1)}100%{transform:scale(1)}}
+.odo.green .digit{color:var(--green-lt);text-shadow:0 0 20px rgba(126,224,164,.45)}
+.odo.dim .digit{color:#5b6771;text-shadow:none}
+.herotext .k{font:800 12px 'Overpass';letter-spacing:.22em;color:#9fb0bd}
+.herotext .v{font:800 25px/1.15 'Overpass';margin-top:5px}
+.herotext .s{font:500 14px 'Barlow';color:#b9c6d0;margin-top:4px;max-width:44ch}
+
+.notice{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:13px 16px;border-radius:10px;font:500 14px/1.5 'Barlow';
+  animation:slidein .35s ease;
+}
+@keyframes slidein{from{opacity:0;transform:translateY(-6px)}}
+.notice.warn{background:#fff6e2;border:1.5px solid #f0cd8a;border-left:5px solid var(--paint);color:#7a5b1e}
+.notice.bad{background:#fdeae6;border:1.5px solid #f2b1a5;border-left:5px solid var(--red);color:#8c2b1c}
+
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.stat{
+  background:#fff;border:1.5px solid var(--line);border-top:5px solid var(--green);
+  border-radius:12px;padding:16px 18px 14px;
+  box-shadow:0 12px 26px -20px rgba(30,45,40,.55);
+  transition:transform .2s, box-shadow .2s;
+}
+.stat:hover{transform:translateY(-3px);box-shadow:0 18px 32px -18px rgba(30,45,40,.5)}
+.stat.y{border-top-color:var(--paint)} .stat.b{border-top-color:#5aa9d6} .stat.a{border-top-color:var(--asphalt)}
+.stat .k{font:700 11px 'Overpass';letter-spacing:.16em;color:var(--mut);text-transform:uppercase}
+.stat .v{font:800 29px/1.1 'Overpass';margin-top:7px;font-variant-numeric:tabular-nums;transition:color .2s}
+.stat .v small{font:700 15px 'Overpass';color:var(--mut);margin-left:3px}
+.stat .s{font:500 12.5px 'Barlow';color:#8593a0;margin-top:4px}
+
+.plan{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:18px 20px;box-shadow:0 12px 26px -20px rgba(30,45,40,.55)}
+.plan h3{font-weight:900;font-size:12px;letter-spacing:.22em;color:var(--mut)}
+.plan ol{list-style:none;margin-top:10px}
+.plan li{display:flex;align-items:baseline;gap:12px;padding:9px 0;border-bottom:1px dashed #e3e9e5;font:500 14px 'Barlow';color:#3c4a55}
+.plan li:last-child{border-bottom:0}
+.plan .badge{
+  flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font:800 12px 'Overpass';transform:translateY(4px);
+}
+.b-start{background:var(--green);color:#fff}
+.b-stop{background:#fff;border:2.5px solid var(--green-d);color:var(--green-dd)}
+.b-end{background:var(--asphalt-d);color:#fff}
+.plan .leader{flex:1;border-bottom:2px dotted #c9d4cf;transform:translateY(-4px)}
+.plan li b{font-family:'Overpass';font-weight:700;color:var(--ink)}
+.plan .more{color:var(--mut);font-style:italic}
+
+footer{
+  position:relative;z-index:1;max-width:1180px;margin:30px auto 44px;padding:0 28px;
+  display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  font:500 12.5px 'Barlow';color:#7b8a95;
+}
+footer b{color:#54636f}
+
+/* entrance */
+.rise{opacity:0;transform:translateY(16px);animation:rise .65s cubic-bezier(.22,.9,.3,1) forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+
+/* ============ RESPONSIF & GERAK ============ */
+@media (max-width:980px){
+  .grid{grid-template-columns:1fr}
+  header{padding-top:24px}
+  .exit{display:none}
+}
+@media (max-width:600px){
+  .roadwrap{padding:88px 18px 0}
+  .grid,header,footer{padding-left:18px;padding-right:18px}
+  .road{height:96px}
+  .stopm .disc{width:32px;height:32px;font-size:13px}
+  .endp .disc{width:34px;height:34px}
+  .odo .digit{min-width:46px;font-size:40px}
+  .legend{display:none}
+  .car{width:50px;top:12px}
+  .utoggle{width:100%}
 }
 @media (prefers-reduced-motion:reduce){
-  .lane,.live i,.car svg,.ep.start.pre .d,.mr-num span,.cluster{animation:none !important}
-  .rv{opacity:1;transform:none;transition:none}
+  .lane,.cloud,.sun,.car svg,.live i,.rise{animation:none !important}
+  .rise{opacity:1;transform:none}
   *{transition-duration:.01ms !important}
 }
 </style>
 </head>
 <body>
-<div class="bg" aria-hidden="true"></div>
 
-<!-- ============ TOPBAR ============ -->
-<header class="topbar">
-  <div class="brand">
-    <svg viewBox="0 0 40 44" aria-hidden="true">
-      <path d="M4 7c0-2.5 2-4.5 4.5-4.5h23C34 2.5 36 4.5 36 7v19c0 9.3-7.2 15-16 16C11.2 41 4 35.3 4 26z" fill="none" stroke="currentColor" stroke-width="2.6"/>
-      <path d="M13.5 12h9v19M13.5 16.5h9M11 31h14M25.5 18.5h2.6l3.9 3.9v7.1a2.6 2.6 0 0 1-5.2 0v-5.8h-2.3" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <div>
-      <h1 class="bname">FUEL<em>STOP</em></h1>
-      <span class="bsub">PERENCANA TITIK ISI BBM · ROAD TRIP</span>
+<!-- langit ambient -->
+<div class="bgsky" aria-hidden="true">
+  <div class="sun"></div>
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+</div>
+
+<!-- ======= HEADER RAMBU ======= -->
+<header class="rise">
+  <div class="sign">
+    <div class="shield" aria-hidden="true"><span>BBM</span><small>ROUTE 02</small></div>
+    <div class="signtext">
+      <h1>Perencana Titik Isi Bahan Bakar</h1>
+      <p>Hitung berapa kali harus mampir SPBU di perjalananmu — jumlah stop, jarak antar stop, dan total konsumsi BBM dihitung langsung saat kamu mengubah angka.</p>
     </div>
+    <div class="exit" aria-hidden="true">KELUAR 02<br><span>SPBU ⛽</span></div>
   </div>
-  <div class="seg met" id="seg" role="group" aria-label="Pilih satuan">
-    <button type="button" class="sbtn" id="segImp" aria-pressed="false">IMPERIAL<span>mi · mpg · gal</span></button>
-    <button type="button" class="sbtn active" id="segMet" aria-pressed="true">METRIK<span>km · L/100km · L</span></button>
-    <i class="sthumb" aria-hidden="true"></i>
+  <div class="utoggle met" id="utoggle" role="group" aria-label="Pilih satuan">
+    <button type="button" class="ubtn" id="uImp" aria-pressed="false">IMPERIAL<small>mi · mpg · gal</small></button>
+    <button type="button" class="ubtn active" id="uMet" aria-pressed="true">METRIK<small>km · L/100km · L</small></button>
+    <span class="uthumb" aria-hidden="true"></span>
   </div>
 </header>
 
-<div class="wrap">
+<!-- ======= JALAN LIVE ======= -->
+<section class="roadwrap rise" style="animation-delay:.08s" aria-label="Visual rute perjalanan">
+  <div class="hills" aria-hidden="true"></div>
+  <div class="roadhead">
+    <h2>RUTE PERJALANAN <span class="live"><i></i>hitungan langsung</span></h2>
+    <span class="routechip" id="routeChip">menunggu input…</span>
+  </div>
+  <div class="road" id="road">
+    <div class="reach" id="reach"></div>
+    <div class="lane" aria-hidden="true"></div>
+    <div class="reachlabel" id="reachLabel" style="opacity:0">⛽</div>
 
-  <!-- ============ CLUSTER: INSTRUMEN + RUTE ============ -->
-  <section class="cluster" aria-label="Instrumen perjalanan dan rute">
-    <div class="cluster-head">
-      <div><span class="ovl">INSTRUMEN PERJALANAN</span><span class="live"><i></i>REAL-TIME</span></div>
-      <span class="routechip" id="routeChip">menunggu input…</span>
+    <div class="car" id="car" aria-hidden="true">
+      <svg viewBox="0 0 88 38" width="62" height="27">
+        <path d="M6 25c0-5 4-8.2 9.4-9.2l8.6-1.4 7-8.2C32.4 4.6 34 4 36 4h14c3 0 5.7 1.4 7.5 3.9l4.9 6.5 10 2c4 .8 6.6 3.5 6.6 7.1v4c0 2.2-1.8 4-4 4h-5.4a8.2 8.2 0 0 1-16.1 0H33.7a8.2 8.2 0 0 1-16.1 0H13c-3.9 0-7-3.2-7-7z" fill="#e2503c"/>
+        <path d="M33 7.5h11.5V16H25.6l7.4-8.5zM48.5 7.5h5.8c1.8 0 3.5.9 4.6 2.3l3.6 4.7v1.5H48.5z" fill="#cfe8f4"/>
+        <rect x="76" y="21" width="6" height="4.5" rx="2" fill="#ffd76a"/>
+        <circle cx="25.5" cy="31" r="6.2" fill="#1b1f23"/><circle cx="25.5" cy="31" r="2.7" fill="#9aa6b0"/>
+        <circle cx="66" cy="31" r="6.2" fill="#1b1f23"/><circle cx="66" cy="31" r="2.7" fill="#9aa6b0"/>
+      </svg>
     </div>
 
-    <div class="cluster-grid">
-      <!-- gauge bensin -->
-      <div class="gauge" role="img" aria-label="Gauge isi tangki bahan bakar">
-        <svg viewBox="0 0 200 160">
-          <circle cx="100" cy="100" r="91" fill="none" stroke="rgba(255,107,87,.55)" stroke-width="3.5"
-                  id="gReserve" transform="rotate(150 100 100)" stroke-linecap="round"/>
-          <circle cx="100" cy="100" r="78" fill="none" stroke="#232c37" stroke-width="13"
-                  id="gTrack" transform="rotate(150 100 100)" stroke-linecap="round"/>
-          <circle cx="100" cy="100" r="78" fill="none" stroke="currentColor" stroke-width="13"
-                  id="gArc" transform="rotate(150 100 100)" stroke-linecap="round" style="color:var(--green)"/>
-          <g id="gTicks"></g>
-          <g id="gNeedle">
-            <polygon points="100,96.6 156,99.2 156,100.8 100,103.4" fill="#e9eef4"/>
-            <circle cx="100" cy="100" r="5.5" fill="#e9eef4" stroke="#0c1117" stroke-width="2.5"/>
-          </g>
-          <text x="20" y="152" font-family="IBM Plex Mono" font-size="11" fill="#ff6b57" text-anchor="middle">E</text>
-          <text x="180" y="152" font-family="IBM Plex Mono" font-size="11" fill="#3ecf8e" text-anchor="middle">F</text>
-        </svg>
-        <div class="gcenter">
-          <div class="gpct ok" id="gPct">70<small>%</small></div>
-          <div class="glabel">ISI TANGKI</div>
-          <div class="grange" id="gRange">≈ — km</div>
-        </div>
-      </div>
+    <div class="endp start"><div class="disc">▶</div><span class="lbl">MULAI</span></div>
+    <div class="endp finish"><div class="disc"></div><span class="lbl">TUJUAN</span></div>
+    <div id="markers"></div>
+  </div>
+  <div class="below">
+    <span>0 <span class="u-dist">km</span></span>
+    <span class="legend">
+      <span><i class="sw"></i>jangkauan bensin saat ini</span>
+      <span><i class="dt"></i>stop isi BBM</span>
+    </span>
+    <span><b id="belowDist">—</b> <span class="u-dist">km</span> total</span>
+  </div>
+</section>
 
-      <!-- readout -->
-      <div class="readouts" aria-live="polite">
-        <div class="mainread">
-          <div class="mr-num" id="bigStops"><span>–</span></div>
-          <div class="mr-side">
-            <div class="mr-label">PEMBERHENTIAN SPBU</div>
-            <p class="mr-note" id="mrNote">Lengkapi angka di dasbor untuk mulai menghitung.</p>
-          </div>
-        </div>
-        <div class="ro-grid">
-          <div class="ro g"><div class="k">STOP PERTAMA</div><div class="v"><span id="roFirst">—</span></div><div class="s" id="roFirstSub">dengan bensin sekarang</div></div>
-          <div class="ro"><div class="k">JARAK ANTAR STOP</div><div class="v"><span id="roSpace">—</span></div><div class="s">per tangki (penuh → cadangan)</div></div>
-          <div class="ro c"><div class="k">TOTAL KONSUMSI</div><div class="v"><span id="roFuel">—</span><small id="roFuelU">L</small></div><div class="s" id="roFuelSub">—</div></div>
-          <div class="ro t"><div class="k">JANGKAUAN MAKS</div><div class="v"><span id="roRange">—</span></div><div class="s">dari penuh sampai habis</div></div>
+<!-- ======= DASBOR & HASIL ======= -->
+<main class="grid">
+
+  <!-- konsol input -->
+  <section class="console rise" style="animation-delay:.16s" aria-label="Input perjalanan">
+    <h2>DASBOR KENDARAAN</h2>
+    <p class="sub">Geser atau ketik — semua hitungan ikut berubah seketika.</p>
+
+    <div class="field">
+      <div class="frow">
+        <label for="inDist">Jarak Perjalanan</label>
+        <span class="numwrap"><input id="inDist" type="number" inputmode="decimal" step="1" min="0" aria-label="Jarak perjalanan"><span class="unit u-dist">km</span></span>
+      </div>
+      <input id="slDist" type="range" aria-label="Geser jarak perjalanan">
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <div class="field">
+      <div class="frow">
+        <label for="inEff">Konsumsi BBM</label>
+        <span class="numwrap"><input id="inEff" type="number" inputmode="decimal" step="0.1" min="0" aria-label="Konsumsi BBM"><span class="unit u-eff">L/100km</span></span>
+      </div>
+      <input id="slEff" type="range" aria-label="Geser konsumsi BBM">
+    </div>
+
+    <div class="field">
+      <div class="frow">
+        <label for="inTank">Ukuran Tangki</label>
+        <span class="numwrap"><input id="inTank" type="number" inputmode="decimal" step="0.5" min="0" aria-label="Ukuran tangki"><span class="unit u-tank">L</span></span>
+      </div>
+      <input id="slTank" type="range" aria-label="Geser ukuran tangki">
+    </div>
+
+    <div class="field">
+      <div class="frow">
+        <label for="slLevel">Isi Tangki Saat Ini</label>
+        <span class="lvlpct" id="lvlPct">70%</span>
+      </div>
+      <input id="slLevel" type="range" min="0" max="100" step="1" value="70" aria-label="Geser persentase isi tangki">
+      <div class="gauge" aria-hidden="true">
+        <div class="tankbox">
+          <div class="inner"><div class="liq" id="tankLiq"></div></div>
+          <span class="tick" style="left:25%"></span><span class="tick" style="left:50%"></span><span class="tick" style="left:75%"></span>
         </div>
       </div>
     </div>
 
-    <!-- jalan live -->
-    <div class="route">
-      <div class="legend" aria-hidden="true">
-        <span><i class="sw"></i>jangkauan bensin saat ini</span>
-        <span><i class="dt"></i>stop SPBU</span>
-      </div>
-      <div class="road">
-        <div class="reach" id="reach"></div>
-        <div class="lane" aria-hidden="true"></div>
-        <div class="reachtag" id="reachTag" style="opacity:0">⛽</div>
-        <div class="car" id="car" aria-hidden="true">
-          <svg viewBox="0 0 88 38" width="54" height="24">
-            <path d="M6 25c0-5 4-8.2 9.4-9.2l8.6-1.4 7-8.2C32.4 4.6 34 4 36 4h14c3 0 5.7 1.4 7.5 3.9l4.9 6.5 10 2c4 .8 6.6 3.5 6.6 7.1v4c0 2.2-1.8 4-4 4h-5.4a8.2 8.2 0 0 1-16.1 0H33.7a8.2 8.2 0 0 1-16.1 0H13c-3.9 0-7-3.2-7-7z" fill="#ff7a59"/>
-            <path d="M33 7.5h11.5V16H25.6l7.4-8.5zM48.5 7.5h5.8c1.8 0 3.5.9 4.6 2.3l3.6 4.7v1.5H48.5z" fill="#9fd8f5"/>
-            <rect x="76" y="21" width="6" height="4.5" rx="2" fill="#ffd76a"/>
-            <circle cx="25.5" cy="31" r="6.2" fill="#10151c"/><circle cx="25.5" cy="31" r="2.7" fill="#8b98a5"/>
-            <circle cx="66" cy="31" r="6.2" fill="#10151c"/><circle cx="66" cy="31" r="2.7" fill="#8b98a5"/>
-          </svg>
-          <i class="beam" aria-hidden="true"></i>
-        </div>
-        <div class="ep start" id="epStart"><div class="d">▶</div><span class="lb">MULAI</span></div>
-        <div class="ep finish"><div class="d"></div><span class="lb">TUJUAN</span></div>
-        <div id="markers"></div>
-      </div>
-      <div class="ticks" id="ticks" aria-hidden="true"></div>
-    </div>
+    <p class="foot-note">⚡ <b>Tanpa tombol hitung</b> — angka di atas langsung memperbarui rute dan hasil di samping.</p>
   </section>
 
-  <!-- ============ KOLOM: DASBOR & DETAIL ============ -->
-  <main class="cols">
+  <!-- papan hasil -->
+  <section class="board rise" style="animation-delay:.24s" aria-label="Hasil perhitungan" aria-live="polite">
 
-    <section class="console rv" aria-label="Dasbor pengaturan">
-      <span class="ovl">PENGATURAN</span>
-      <h2>Dasbor Kendaraan</h2>
-      <p class="csub">Geser atau ketik — semua instrumen ikut bergerak seketika.</p>
-
-      <div class="field">
-        <div class="frow">
-          <label for="inDist">Jarak Perjalanan</label>
-          <span class="numbox"><input id="inDist" type="number" inputmode="decimal" step="1" min="0"><span class="u" id="uDist">km</span></span>
-        </div>
-        <input id="slDist" type="range" aria-label="Geser jarak perjalanan">
-        <div class="chips" id="chips"></div>
+    <div class="herostat">
+      <div class="odo" id="odo"><span class="digit">–</span></div>
+      <div class="herotext">
+        <div class="k">PEMBERHENTIAN BBM</div>
+        <div class="v" id="heroTitle">Menghitung…</div>
+        <div class="s" id="heroNote">Lengkapi angka di dasbor untuk melihat rencana perjalananmu.</div>
       </div>
+    </div>
 
-      <div class="field">
-        <div class="frow">
-          <label for="inEff">Konsumsi BBM</label>
-          <span class="numbox"><input id="inEff" type="number" inputmode="decimal" step="0.1" min="0"><span class="u" id="uEff">L/100km</span></span>
-        </div>
-        <input id="slEff" type="range" aria-label="Geser konsumsi BBM">
+    <div class="notice" id="notice" hidden></div>
+
+    <div class="stats">
+      <div class="stat y">
+        <div class="k">Jarak Antar Stop</div>
+        <div class="v"><span id="stSpace">—</span><small class="u-dist">km</small></div>
+        <div class="s" id="stSpaceSub">diratakan di sepanjang rute</div>
       </div>
-
-      <div class="field">
-        <div class="frow">
-          <label for="inTank">Ukuran Tangki</label>
-          <span class="numbox"><input id="inTank" type="number" inputmode="decimal" step="0.5" min="0"><span class="u" id="uTank">L</span></span>
-        </div>
-        <input id="slTank" type="range" aria-label="Geser ukuran tangki">
+      <div class="stat">
+        <div class="k">Total Konsumsi BBM</div>
+        <div class="v"><span id="stFuel">—</span><small class="u-fuel">L</small></div>
+        <div class="s" id="stFuelSub">untuk seluruh perjalanan</div>
       </div>
-
-      <div class="field">
-        <div class="frow">
-          <label for="slLevel">Isi Tangki Saat Ini</label>
-          <span class="fval" id="lvlVal">70%</span>
-        </div>
-        <input id="slLevel" type="range" min="0" max="100" step="1" value="70" aria-label="Geser persentase isi tangki">
+      <div class="stat b">
+        <div class="k">Jangkauan Tangki Penuh</div>
+        <div class="v"><span id="stRange">—</span><small class="u-dist">km</small></div>
+        <div class="s" id="stRangeSub">sekali isi penuh</div>
       </div>
-
-      <div class="field">
-        <div class="frow">
-          <label for="slRes">Cadangan (Reserve)</label>
-          <span class="fval am" id="resVal">15%</span>
-        </div>
-        <input id="slRes" type="range" min="0" max="40" step="5" value="15" aria-label="Geser persentase cadangan">
+      <div class="stat a">
+        <div class="k">Bensin Perlu Ditambah</div>
+        <div class="v"><span id="stAdd">—</span><small class="u-fuel">L</small></div>
+        <div class="s">total yang dibeli di SPBU (di luar isi tangki sekarang)</div>
       </div>
+    </div>
 
-      <div class="field">
-        <div class="frow">
-          <label for="inPrice">Harga BBM<span class="opt">OPSIONAL</span></label>
-          <span class="numbox"><input id="inPrice" type="number" inputmode="numeric" step="100" min="0"><span class="u" id="uPrice">Rp/L</span></span>
-        </div>
-      </div>
+    <div class="plan">
+      <h3>🗺️ RENCANA PERJALANAN</h3>
+      <ol id="planList"></ol>
+    </div>
 
-      <p class="assum"><b>Asumsi:</b> setiap stop mengisi sampai penuh — kecuali stop terakhir yang cukup untuk sampai tujuan dengan sisa cadangan. Konsumsi dianggap konstan di seluruh rute.</p>
-    </section>
+  </section>
+</main>
 
-    <section aria-label="Detail hasil">
-      <div class="notices" id="notices" aria-live="polite"></div>
-
-      <div class="manifest rv">
-        <div class="mhead">
-          <div>
-            <span class="mono">DOKUMEN PERJALANAN · LIVE</span>
-            <h3>Manifest Perjalanan</h3>
-          </div>
-          <button type="button" class="copybtn" id="copyBtn">SALIN RINGKASAN</button>
-        </div>
-        <div id="maniList"></div>
-        <div class="mtotal" id="maniTotals"></div>
-
-        <div class="chart">
-          <h4>PROFIL PENGISIAN BBM</h4>
-          <div class="bars" id="bars"></div>
-          <div class="cnote" id="chartNote"></div>
-        </div>
-      </div>
-
-      <details class="method rv">
-        <summary>BAGAIMANA INI DIHITUNG?</summary>
-        <div class="inner">
-          <ul>
-            <li>Konsumsi diubah ke <code>km/L</code> — metrik: <code>100 ÷ (L/100km)</code>; imperial: <code>mpg × 0,4251</code>.</li>
-            <li><b>Stop pertama</b> terjadi saat bensin menyentuh cadangan: <code>(isi% − cadangan%) × tangki × km/L</code>.</li>
-            <li>Stop berikutnya selalu di titik cadangan. Setiap pengisian membeli <b>secukupnya untuk sampai tujuan dengan sisa cadangan</b> — atau tangki penuh bila belum cukup. Jumlah stop disimulasikan dari aturan ini, bukan pembulatan buta.</li>
-            <li>Konstanta: <code>1 mi = 1,609344 km</code> · <code>1 gal = 3,785412 L</code>.</li>
-          </ul>
-        </div>
-      </details>
-    </section>
-  </main>
-
-  <footer class="rv">
-    <span>FUELSTOP · satu berkas HTML · tanpa backend · tanpa login · data tersimpan di perangkatmu</span>
-    <span>1 mi = 1,609 km · 1 gal = 3,785 L</span>
-  </footer>
-</div>
+<footer class="rise" style="animation-delay:.3s">
+  <span><b>Satu berkas HTML</b> · tanpa backend, tanpa login · semua hitungan terjadi di browser-mu.</span>
+  <span>Asumsi: setiap stop mengisi tangki sampai penuh · 1 mil = 1,609 km · 1 galon = 3,785 L</span>
+</footer>
 
 <script>
-'use strict';
 /* ================= KONSTANTA & STATE ================= */
+const KM_PER_MI = 1.609344, L_PER_GAL = 3.785411784, MPG = 235.2145833;
 const $ = id => document.getElementById(id);
-const NS = 'http://www.w3.org/2000/svg';
-const K = { MI:1.609344, GAL:3.785411784, MPG:235.2145833 };
-const DEF = { unit:'metric', dist:600, eff:7.2, tank:45, level:70, reserve:15, price:12900 };
-let S = { ...DEF };
-const KEY = 'fuelstop.v2';
-const ROAD_MAX=60, MANI_MAX=14, CHART_MAX=12, LOOP_MAX=1000;
+
+/* state canonical selalu dalam METRIK (km, L/100km, L, %) */
+const state = { unit:'metric', dist:600, eff:7.2, tank:45, level:70 };
 
 const CFG = {
-  metric:{ du:'km', fu:'L', eu:'L/100km', pu:'Rp/L',
-    dist:{min:10,max:3000,step:5}, eff:{min:2,max:25,step:.1}, tank:{min:20,max:120,step:1},
+  metric: { du:'km', fu:'L', eu:'L/100km',
+    dist:{min:10,max:3000,step:5}, eff:{min:2,max:25,step:0.1}, tank:{min:20,max:120,step:1},
     presets:[{l:'Jakarta–Surabaya',v:780},{l:'Bandung–Yogyakarta',v:530},{l:'Jakarta–Denpasar',v:1150}] },
-  imperial:{ du:'mi', fu:'gal', eu:'mpg', pu:'Rp/gal',
-    dist:{min:10,max:2000,step:5}, eff:{min:10,max:60,step:.5}, tank:{min:6,max:32,step:.5},
+  imperial:{ du:'mi', fu:'gal', eu:'mpg',
+    dist:{min:10,max:2000,step:5}, eff:{min:10,max:60,step:0.5}, tank:{min:6,max:32,step:0.5},
     presets:[{l:'LA–Las Vegas',v:270},{l:'SF–Los Angeles',v:382},{l:'NYC–Boston',v:215}] }
 };
+const MAX_MARKERS = 50, MAX_PLAN = 12;
 
-/* ================= FORMAT (id-ID) ================= */
+/* ================= FORMAT ANGKA (id-ID) ================= */
 const fmt = (n,d=0)=> isFinite(n) ? n.toLocaleString('id-ID',{minimumFractionDigits:d,maximumFractionDigits:d}) : '—';
-const fD = n => fmt(n, (n>0 && n<10) ? 1 : 0);
-const fV = n => fmt(n, n>=100 ? 0 : 1);
-const fRp = n => 'Rp ' + fmt(Math.round(n),0);
+const fmtDist = n => fmt(n, n<10 && n>0 ? 1 : 0);
+const fmtFuel = n => fmt(n, n>=100 ? 0 : 1);
 
-/* konversi state(canonical metrik) → tampilan */
-const dLen  = km => S.unit==='metric' ? km : km/K.MI;
-const dVol  = l  => S.unit==='metric' ? l  : l/K.GAL;
-const dDist = ()=> dLen(S.dist);
-const dEff  = ()=> S.unit==='metric' ? S.eff : K.MPG/S.eff;
-const dTank = ()=> dVol(S.tank);
-const dPrice= ()=> S.unit==='metric' ? S.price : S.price*K.GAL;
+/* ================= KONVERSI TAMPILAN ================= */
+const disp = () => { // state -> nilai tampilan
+  const m = state.unit==='metric';
+  return {
+    dist: m ? state.dist : state.dist/KM_PER_MI,
+    eff : m ? state.eff  : MPG/state.eff,
+    tank: m ? state.tank : state.tank/L_PER_GAL
+  };
+};
+const setFrom = (field, v) => { // nilai tampilan -> state canonical
+  const m = state.unit==='metric';
+  if(field==='dist') state.dist = m ? v : v*KM_PER_MI;
+  if(field==='eff')  state.eff  = m ? v : MPG/v;
+  if(field==='tank') state.tank = m ? v : v*L_PER_GAL;
+};
 
-/* ================= ALGORITMA PERENCANAAN ================= */
-/* Simulasi: berkendara sampai cadangan, isi secukupnya (atau penuh bila
-   belum cukup mencapai tujuan). Menghasilkan jumlah stop minimum dan
-   pembelian BBM minimum, dengan cadangan selalu dijaga. */
-function planTrip(D, kpl, T, L, r){
-  const eps=1e-9, F=D/kpl, stops=[];
-  let pos=0, tank=L*T;
-  const usable=T*(1-r), uDist=usable*kpl;
-  let firstDist=Math.max(0,tank-r*T)*kpl, truncated=false;
-
-  if (tank <= r*T + eps){                       // di bawah cadangan → isi sebelum jalan
-    const add=Math.min(T-tank, Math.max(0, F-tank+r*T));
-    if (add>eps){ stops.push({pos:0, add, pre:true}); tank+=add; }
-    firstDist=0;
-  }
-  let guard=0;
-  while (guard++ < LOOP_MAX){
-    if (pos + tank*kpl >= D-eps) break;         // bisa sampai
-    pos += Math.max(0, tank-r*T)*kpl;           // maju sampai titik cadangan
-    tank = r*T;
-    if (pos >= D-eps) break;
-    const remaining=(D-pos)/kpl;
-    const add=Math.min(T-tank, Math.max(0, remaining-tank+r*T));
-    if (add<=eps){ truncated=true; break; }
-    stops.push({pos, add, pre:false});
-    tank += add;
-  }
-  if (guard>=LOOP_MAX) truncated=true;
-  const arrival=Math.max(0, tank-(D-pos)/kpl);
-  return { stops, count:stops.length, F, firstDist, uDist, arrival,
-           totalAdd:stops.reduce((s,x)=>s+x.add,0), truncated };
+/* ================= SINKRONISASI INPUT ================= */
+const fields = [
+  {key:'dist', num:$('inDist'), sl:$('slDist')},
+  {key:'eff',  num:$('inEff'),  sl:$('slEff')},
+  {key:'tank', num:$('inTank'), sl:$('slTank')}
+];
+function paintSlider(el){
+  const p = (el.value-el.min)/(el.max-el.min)*100;
+  el.style.setProperty('--fill', p+'%');
+}
+function syncInputs(){
+  const c = CFG[state.unit], d = disp();
+  fields.forEach(f=>{
+    const cfg = c[f.key];
+    f.sl.min = cfg.min; f.sl.max = cfg.max; f.sl.step = cfg.step;
+    const v = d[f.key];
+    f.num.value = isFinite(v) ? +v.toFixed(1) : '';
+    f.sl.value  = isFinite(v) ? v : cfg.min;
+    paintSlider(f.sl);
+  });
+  $('slLevel').value = state.level;
+  paintSlider($('slLevel'));
+  document.querySelectorAll('.u-dist').forEach(e=>e.textContent = c.du);
+  document.querySelectorAll('.u-fuel').forEach(e=>e.textContent = c.fu);
+  document.querySelectorAll('.u-eff').forEach(e=>e.textContent  = c.eu);
 }
 
-/* ================= GAUGE ================= */
-const ARC = 2*Math.PI*78*240/360, C78 = 2*Math.PI*78;
-const ARC91 = 2*Math.PI*91*240/360, C91 = 2*Math.PI*91;
-(function buildGaugeTicks(){
-  const g=$('gTicks');
-  for(let i=0;i<=20;i++){
-    const f=i/20, a=(150+240*f)*Math.PI/180, maj=i%5===0;
-    const r1=maj?60:64, r2=70;
-    const l=document.createElementNS(NS,'line');
-    l.setAttribute('x1',100+r1*Math.cos(a)); l.setAttribute('y1',100+r1*Math.sin(a));
-    l.setAttribute('x2',100+r2*Math.cos(a)); l.setAttribute('y2',100+r2*Math.sin(a));
-    l.setAttribute('stroke', maj?'#5f6e7d':'#333f4d');
-    l.setAttribute('stroke-width', maj?2:1);
-    g.appendChild(l);
-  }
-})();
-function renderGauge(plan, valid){
-  const c=CFG[S.unit], f=S.level/100, r=S.reserve/100;
-  const arc=$('gArc');
-  arc.style.color = f>.5 ? 'var(--green)' : f>=.2 ? 'var(--amber)' : 'var(--red)';
-  arc.style.opacity = f>0.004 ? 1 : 0;
-  arc.setAttribute('stroke-dasharray', `${ARC*f} ${C78}`);
-  $('gReserve').setAttribute('stroke-dasharray', `${ARC91*r} ${C91}`);
-  $('gReserve').style.opacity = r>0.004 ? 1 : 0;
-  $('gNeedle').style.transform = `rotate(${150+240*f}deg)`;
-  const gp=$('gPct');
-  gp.innerHTML = fmt(S.level,0)+'<small>%</small>';
-  gp.className = 'gpct ' + (f>.5?'ok':f>=.2?'mid':'low');
-  const gr=$('gRange');
-  if(!valid){ gr.textContent='≈ — '+c.du; gr.className='grange'; }
-  else if (S.level<=S.reserve){ gr.textContent='di bawah cadangan'; gr.className='grange bad'; }
-  else { gr.textContent=`≈ ${fD(dLen(plan.firstDist))} ${c.du} lagi`; gr.className='grange'+(f<=.2?' low':''); }
+/* ================= CHIP RUTE POPULER ================= */
+function buildChips(){
+  const c = CFG[state.unit];
+  $('chips').innerHTML = c.presets.map((p,i)=>
+    `<button type="button" class="chip" data-i="${i}">${p.l} · ${fmt(p.v,0)} ${c.du}</button>`).join('');
+  $('chips').querySelectorAll('.chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const p = c.presets[+btn.dataset.i];
+      setFrom('dist', p.v);
+      syncInputs(); recalc();
+      const w = $('inDist').closest('.numwrap');
+      w.classList.add('flash'); setTimeout(()=>w.classList.remove('flash'), 650);
+    });
+  });
 }
 
-/* ================= MARKER JALAN ================= */
-const mk=[];
-function setMarkers(stops, c){
-  const D=S.dist, box=$('markers');
-  const roadStops = stops.filter(s=>!s.pre).slice(0,ROAD_MAX);
-  while(mk.length<roadStops.length){
-    const d=document.createElement('div');
-    d.className='stopm';
-    d.innerHTML='<div class="d"><span></span></div><div class="tt"></div>';
+/* ================= MARKER STOP DI JALAN ================= */
+const mk = [];
+function setMarkers(n, spacingD, du){
+  const box = $('markers');
+  while(mk.length < Math.min(n,MAX_MARKERS)){
+    const d = document.createElement('div');
+    d.className = 'stopm';
+    d.innerHTML = '<div class="disc"><span></span></div><div class="tt"></div>';
     box.appendChild(d); mk.push(d);
     requestAnimationFrame(()=>d.classList.add('pop'));
   }
-  while(mk.length>roadStops.length) mk.pop().remove();
-  roadStops.forEach((s,i)=>{
-    const el=mk[i], n=stops.indexOf(s)+1;
-    el.style.left=(s.pos/D*100)+'%';
-    el.querySelector('.d span').textContent=n;
-    el.querySelector('.tt').innerHTML=
-      `Stop ${n} · <b>${fD(dLen(s.pos))} ${c.du}</b> · +${fV(dVol(s.add))} ${c.fu}`;
+  while(mk.length > Math.min(n,MAX_MARKERS)) mk.pop().remove();
+  mk.forEach((el,i)=>{
+    el.style.left = ((i+1)/(n+1)*100) + '%';
+    el.querySelector('.disc span').textContent = i+1;
+    el.querySelector('.tt').textContent = `Stop ${i+1} · di ${fmtDist(spacingD*(i+1))} ${du}`;
   });
 }
 
-/* ================= RENDER UTAMA ================= */
+/* ================= ODOMETER ================= */
+function setOdo(val){
+  const box = $('odo');
+  box.className = 'odo' + (val===0 ? ' green' : val===null ? ' dim' : '');
+  const s = val===null ? '–' : (val>99 ? '99+' : String(val));
+  if(s === box.dataset.v) return;
+  box.dataset.v = s;
+  box.innerHTML = [...s].map(c=>`<span class="digit">${c}</span>`).join('');
+}
+
+/* ================= HITUNG & RENDER UTAMA ================= */
 function recalc(){
-  const c=CFG[S.unit];
-  const kpl=100/S.eff;
-  const valid=[S.dist,S.eff,S.tank].every(v=>isFinite(v)&&v>0);
-  const plan = valid ? planTrip(S.dist,kpl,S.tank,S.level/100,S.reserve/100) : null;
+  const c = CFG[state.unit];
+  const d = disp();
+  const valid = [state.dist,state.eff,state.tank].every(v=>isFinite(v) && v>0);
 
-  /* --- readout besar --- */
-  const big=$('bigStops');
-  let bv, cls='';
-  if(!valid){ bv='–'; cls='dim'; }
-  else if(plan.count>999){ bv='999+'; }
-  else { bv=String(plan.count); if(plan.count===0) cls='zero'; }
-  if(big.dataset.v!==bv){ big.dataset.v=bv; big.innerHTML=[...bv].map(ch=>`<span>${ch}</span>`).join(''); }
-  big.className='mr-num '+cls;
-
-  const note=$('mrNote');
-  if(!valid) note.innerHTML='Lengkapi angka di dasbor untuk mulai menghitung.';
-  else if(plan.count===0) note.innerHTML=`Tangki cukup untuk seluruh perjalanan — <b>tanpa mampir SPBU</b>. Sisa setiba: <b>${fmt(plan.arrival/S.tank*100,0)}%</b>.`;
-  else note.innerHTML=`Mampir setiap bensin menyentuh cadangan ${S.reserve}%. Stop pertama di <b>≈ ${plan.stops[0].pre?'0 km (isi dulu)':fD(dLen(plan.firstDist))+' '+c.du}</b>, berikutnya tiap <b>≈ ${fD(dLen(plan.uDist))} ${c.du}</b>.`;
-
-  /* --- readout kecil --- */
-  const set=(id,txt)=>{$(id).textContent=txt};
-  if(!valid){ set('roFirst','—'); set('roSpace','—'); set('roFuel','—'); set('roRange','—');
-    $('roFirstSub').textContent='—'; $('roFuelSub').textContent='—'; }
-  else{
-    if(plan.count===0){ set('roFirst','—'); $('roFirstSub').textContent='tidak perlu mampir'; }
-    else if(plan.stops[0].pre){ set('roFirst','0 km'); $('roFirstSub').textContent='tangki di bawah cadangan — isi dulu'; }
-    else { set('roFirst',fD(dLen(plan.firstDist))+' '+c.du); $('roFirstSub').textContent='dengan bensin sekarang'; }
-    set('roSpace',fD(dLen(plan.uDist))+' '+c.du);
-    set('roFuel',fV(dVol(plan.F)));
-    $('roFuelU').textContent=c.fu;
-    $('roFuelSub').textContent = S.price>0 ? `≈ ${fRp(plan.totalAdd*S.price)} biaya pengisian` : `untuk ${fD(dDist())} ${c.du}`;
-    set('roRange',fD(dLen(S.tank*kpl))+' '+c.du);
+  let stops=0, spacing=0, fuelL=0, rangeFull=0, rangeCur=0;
+  if(valid){
+    const kmPerL  = 100/state.eff;
+    fuelL    = state.dist/kmPerL;
+    rangeFull= state.tank*kmPerL;
+    rangeCur = state.tank*state.level/100*kmPerL;
+    stops    = rangeCur >= state.dist-1e-9 ? 0 : Math.ceil((state.dist-rangeCur)/rangeFull - 1e-9);
+    spacing  = stops>0 ? state.dist/(stops+1) : state.dist;
   }
-
-  /* --- gauge --- */
-  renderGauge(plan, valid);
+  const D  = state.dist/KM_PER_MI * (state.unit==='imperial'?1:KM_PER_MI) / (state.unit==='imperial'?KM_PER_MI:1); // jarak tampilan
+  const dDist = state.unit==='metric' ? state.dist : state.dist/KM_PER_MI;
+  const dSpace= state.unit==='metric' ? spacing    : spacing/KM_PER_MI;
+  const dCur  = state.unit==='metric' ? rangeCur   : rangeCur/KM_PER_MI;
+  const dFull = state.unit==='metric' ? rangeFull  : rangeFull/KM_PER_MI;
+  const dFuel = state.unit==='metric' ? fuelL      : fuelL/L_PER_GAL;
+  const addL  = Math.max(0, fuelL - state.tank*state.level/100);
+  const dAdd  = state.unit==='metric' ? addL : addL/L_PER_GAL;
 
   /* --- jalan --- */
-  const car=$('car'); car.classList.remove('zoom'); void car.offsetWidth; car.classList.add('zoom');
   if(valid){
-    const pct=Math.min(plan.firstDist/S.dist,1)*100;
-    $('reach').style.width=pct+'%';
-    const tag=$('reachTag');
-    tag.style.opacity=1;
-    tag.style.left=Math.min(Math.max(pct,7),93)+'%';
-    tag.textContent = plan.count===0 ? '✓ cukup sampai tujuan' : `⛽ isi berikutnya: ${fD(dLen(plan.firstDist))} ${c.du}`;
-    setMarkers(plan.stops, c);
-    $('epStart').classList.toggle('pre', !!plan.stops[0] && plan.stops[0].pre);
-    $('routeChip').innerHTML=`${fD(dDist())} ${c.du} · <b>${plan.count} stop</b> · ${fV(dVol(plan.F))} ${c.fu}`;
-  }else{
-    $('reach').style.width='0%'; $('reachTag').style.opacity=0;
-    setMarkers([], c); $('epStart').classList.remove('pre');
-    $('routeChip').textContent='menunggu input…';
+    const pct = Math.min(rangeCur/state.dist,1)*100;
+    $('reach').style.width = pct+'%';
+    const rl = $('reachLabel');
+    rl.style.opacity = 1;
+    rl.style.left = Math.min(Math.max(pct,6),94)+'%';
+    rl.textContent = stops===0 ? '✓ tangki cukup sampai tujuan' : `⛽ bensin saat ini: ${fmtDist(dCur)} ${c.du}`;
+    setMarkers(stops, dSpace, c.du);
+    $('routeChip').textContent = `${fmtDist(dDist)} ${c.du} · ${stops} stop · ${fmtFuel(dFuel)} ${c.fu}`;
+    $('belowDist').textContent = fmtDist(dDist);
+  } else {
+    $('reach').style.width='0%'; $('reachLabel').style.opacity=0;
+    setMarkers(0,0,c.du);
+    $('routeChip').textContent='menunggu input…'; $('belowDist').textContent='—';
   }
-  /* skala jarak */
-  const ticks=$('ticks'); ticks.innerHTML='';
-  [0,.25,.5,.75,1].forEach((f,i)=>{
-    const sp=document.createElement('span');
-    sp.className = i===0?'t0':i===4?'t4':'tm';
-    sp.style.left=(f*100)+'%';
-    sp.textContent = valid ? fD(dDist()*f)+(i===4?' '+c.du:'') : '—';
-    ticks.appendChild(sp);
-  });
+  const car = $('car');
+  car.classList.remove('zoom'); void car.offsetWidth; car.classList.add('zoom');
+
+  /* --- odometer & hero --- */
+  setOdo(valid ? stops : null);
+  if(!valid){
+    $('heroTitle').textContent = 'Siap berangkat?';
+    $('heroNote').textContent  = 'Lengkapi jarak, konsumsi BBM, dan ukuran tangki di dasbor untuk melihat rencana perjalananmu.';
+  } else if(stops===0){
+    $('heroTitle').textContent = 'Tanpa mampir! 🎉';
+    $('heroNote').textContent  = `Satu tangki penuh cukup untuk ${fmtDist(dFull)} ${c.du} — selamat jalan, tidak perlu mampir SPBU.`;
+  } else {
+    $('heroTitle').textContent = `${stops} kali isi bensin`;
+    $('heroNote').textContent  = `Mampir SPBU setiap ±${fmtDist(dSpace)} ${c.du} agar tidak pernah kehabisan di tengah jalan.`;
+  }
 
   /* --- peringatan --- */
-  const notes=[];
-  if(!valid) notes.push({t:'warn',m:'Lengkapi <b>jarak</b>, <b>konsumsi BBM</b>, dan <b>ukuran tangki</b> — hasil muncul otomatis tanpa tombol.'});
-  else{
-    if(S.level<=S.reserve) notes.push({t:'bad',m:'Tangki berada di bawah cadangan — <b>wajib isi bensin sebelum berangkat</b> (dihitung sebagai stop pertama).'});
-    if(plan.arrival < S.reserve/100*S.tank - 1e-6)
-      notes.push({t:'warn',m:`Perjalanan berakhir dengan bensin di bawah cadangan (sisa ≈ <b>${fmt(plan.arrival/S.tank*100,0)}%</b>) — tangki terlalu kecil atau rute terlalu jauh untuk menjaga cadangan ${S.reserve}%.`});
-    if(plan.truncated) notes.push({t:'warn',m:'Rute ini membutuhkan sangat banyak stop — periksa kembali jarak, tangki, atau konsumsi BBM kamu.'});
-  }
-  $('notices').innerHTML = notes.map(n=>`<div class="notice ${n.t}"><span>${n.t==='bad'?'⚠️':'💡'}</span><span>${n.m}</span></div>`).join('');
+  const notice = $('notice');
+  let msg='', cls='';
+  if(!valid){ msg='Isi semua angka di dasbor dulu — hasilnya akan muncul otomatis di sini.'; cls='warn'; }
+  else if(state.level<=0){ msg='Tangki kosong! Wajib isi bensin sebelum berangkat — kamu bahkan belum bisa keluar dari parkiran. ⛽'; cls='bad'; }
+  else if(stops>0 && rangeCur < spacing){ msg=`Bensin saat ini hanya cukup untuk ${fmtDist(dCur)} ${c.du}, sedangkan stop pertama di ${fmtDist(dSpace)} ${c.du}. Sebaiknya isi penuh dulu sebelum berangkat.`; cls='warn'; }
+  notice.hidden = !msg;
+  if(msg){ notice.className = 'notice '+cls; notice.textContent = (cls==='bad'?'⚠️ ':'💡 ')+msg; }
 
-  renderManifest(plan, valid, c, kpl);
-  renderChart(plan, valid, c);
-  save();
-}
+  /* --- kartu statistik --- */
+  $('stSpace').textContent = valid ? fmtDist(dSpace) : '—';
+  $('stSpaceSub').textContent = valid ? (stops===0 ? 'tanpa stop — satu tangki sampai tujuan' : `diratakan di sepanjang rute (${stops} stop)`) : '—';
+  $('stFuel').textContent  = valid ? fmtFuel(dFuel) : '—';
+  $('stFuelSub').textContent = valid ? (state.unit==='metric' ? `≈ ${fmt(fuelL/L_PER_GAL,1)} galon` : `≈ ${fmt(fuelL,1)} liter`) : '—';
+  $('stRange').textContent = valid ? fmtDist(dFull) : '—';
+  $('stRangeSub').textContent = valid ? (state.unit==='metric' ? `≈ ${fmt(rangeFull/KM_PER_MI,0)} mil sekali isi penuh` : `≈ ${fmt(rangeFull,0)} km sekali isi penuh`) : '—';
+  $('stAdd').textContent   = valid ? fmtFuel(dAdd) : '—';
 
-/* ================= MANIFEST & GRAFIK ================= */
-function renderManifest(plan, valid, c){
-  const list=$('maniList'), tot=$('maniTotals');
+  /* --- gauge bensin --- */
+  const lv = state.level, lp = $('lvlPct');
+  lp.textContent = fmt(lv,0)+'%';
+  lp.className = 'lvlpct' + (lv<20?' low':lv<=50?' mid':'');
+  const liq = $('tankLiq');
+  liq.style.width = lv+'%';
+  liq.style.background = lv<20 ? 'linear-gradient(90deg,#e2503c,#ff8a75)'
+                       : lv<=50 ? 'linear-gradient(90deg,#e8a02c,#ffd76a)'
+                       : 'linear-gradient(90deg,#2fbf71,#7ee0a4)';
+
+  /* --- rencana perjalanan --- */
+  const plan = $('planList');
   if(!valid){
-    list.innerHTML='<div class="mrow"><span class="mbadge mb-s">▶</span><div class="mdesc">Rencana perjalanan akan tersusun otomatis begitu angka terisi.</div></div>';
-    tot.innerHTML=''; return;
+    plan.innerHTML = '<li><span class="badge b-start">▶</span> Rencana perjalanan akan tampil di sini begitu angka terisi.</li>';
+    return;
   }
-  const T=S.tank, usable=T*(1-S.reserve/100);
-  const rows=[`<div class="mrow head"><span></span><span>KETERANGAN</span><span class="mnum">POSI</span><span class="mnum add">+BBM</span><span class="mnum cost">BIAYA</span></div>`];
-  rows.push(row('mb-s','▶','Berangkat',`bensin ${fmt(S.level,0)}% · ${fV(dVol(S.level/100*T))} ${c.fu}`,`0 ${c.du}`,'—','—'));
-  const shown=plan.stops.slice(0,MANI_MAX);
-  plan.stops.slice(0,MANI_MAX).forEach((s,i)=>{
-    const n=i+1, full=s.add>=usable*0.999;
-    rows.push(row(s.pre?'mb-r':'mb-a', s.pre?'!':n,
-      s.pre?'Isi sebelum berangkat':`Stop ${n}`,
-      s.pre?'tangki di bawah cadangan':(full?'isi sampai penuh':'isi secukupnya — cukup sampai tujuan'),
-      `${fD(dLen(s.pos))} ${c.du}`,
-      `+${fV(dVol(s.add))} ${c.fu}`,
-      S.price>0?fRp(s.add*S.price):'—'));
-  });
-  if(plan.count>MANI_MAX) rows.push(`<div class="mrow"><span></span><div class="mdesc" style="color:#8a8f94;font-style:italic">…dan ${plan.count-MANI_MAX} stop lainnya (disingkat)</div></div>`);
-  rows.push(row('mb-e','⚑','Tiba di tujuan',`sisa bensin ${fmt(plan.arrival/T*100,0)}% · ${fV(dVol(plan.arrival))} ${c.fu}`,`${fD(dDist())} ${c.du}`,'—','—'));
-  list.innerHTML=rows.join('');
-  tot.innerHTML=`<span><span class="lab">TOTAL DIBELI&nbsp;</span>${fV(dVol(plan.totalAdd))} ${c.fu}</span>`+
-    (S.price>0?`<span><span class="lab">PERKIRAAN BIAYA&nbsp;</span>${fRp(plan.totalAdd*S.price)}</span>`:'');
-
-  function row(bc,badge,title,sub,pos,add,cost){
-    return `<div class="mrow"><span class="mbadge ${bc}">${badge}</span><div class="mdesc"><b>${title}</b><small>${sub}</small></div><span class="mnum">${pos}</span><span class="mnum add">${add}</span><span class="mnum cost">${cost}</span></div>`;
+  let rows = [`<li><span class="badge b-start">▶</span><span>Berangkat — bensin <b>${fmt(lv,0)}%</b> (jangkauan ≈ <b>${fmtDist(dCur)} ${c.du}</b>)</span><span class="leader"></span></li>`];
+  const shown = Math.min(stops, MAX_PLAN);
+  for(let i=1;i<=shown;i++){
+    rows.push(`<li><span class="badge b-stop">${i}</span><span>Stop ${i} — <b>isi penuh</b> di ${fmtDist(dSpace*i)} ${c.du} dari awal</span><span class="leader"></span></li>`);
   }
-}
-function renderChart(plan, valid, c){
-  const bars=$('bars'), noteEl=$('chartNote');
-  if(!valid || plan.count===0 && S.level<=0){ bars.innerHTML=''; noteEl.textContent='—'; return; }
-  const items=[{k:'now',l:'AWAL',v:S.level/100*S.tank}];
-  plan.stops.slice(0,CHART_MAX).forEach((s,i)=>items.push({k:'stop',l:'STOP '+(i+1),v:s.add}));
-  items.push({k:'left',l:'SISA',v:plan.arrival});
-  const max=Math.max(dTank(),...items.map(x=>dVol(x.v)),1);
-  bars.innerHTML=items.map(x=>{
-    const h=Math.max(3,dVol(x.v)/max*100);
-    return `<div class="bar ${x.k==='now'?'now':x.k==='left'?'left':''}" title="${fV(dVol(x.v))} ${c.fu}"><b>${fV(dVol(x.v))}</b><i style="height:${h}%"></i><span>${x.l}</span></div>`;
-  }).join('');
-  noteEl.textContent = plan.count>CHART_MAX ? `menampilkan ${CHART_MAX} stop pertama dari ${plan.count}` :
-    `semua pengisian dalam ${c.fu} · tinggi dinormalisasi terhadap tangki (${fV(dTank())} ${c.fu})`;
+  if(stops>MAX_PLAN) rows.push(`<li class="more">…dan ${stops-MAX_PLAN} stop lagi (marker di jalan dibatasi agar tetap terbaca)</li>`);
+  rows.push(`<li><span class="badge b-end">⚑</span><span>Tiba di tujuan — total <b>${fmtDist(dDist)} ${c.du}</b> · konsumsi <b>${fmtFuel(dFuel)} ${c.fu}</b></span><span class="leader"></span></li>`);
+  plan.innerHTML = rows.join('');
 }
 
-/* ================= INPUT & SINKRONISASI ================= */
-const FIELDS=[
-  {k:'dist',num:$('inDist'),sl:$('slDist'),get:dDist,set:v=>{S.dist=S.unit==='metric'?v:v*K.MI}},
-  {k:'eff', num:$('inEff'), sl:$('slEff'), get:dEff, set:v=>{S.eff =S.unit==='metric'?v:K.MPG/v}},
-  {k:'tank',num:$('inTank'),sl:$('slTank'),get:dTank,set:v=>{S.tank=S.unit==='metric'?v:v*K.GAL}},
-  {k:'price',num:$('inPrice'),sl:null,    get:dPrice,set:v=>{S.price=S.unit==='metric'?v:v/K.GAL}},
-];
-function paint(el){ const p=(el.value-el.min)/(el.max-el.min)*100; el.style.setProperty('--fill',p+'%'); }
-function syncInputs(){
-  const c=CFG[S.unit];
-  FIELDS.forEach(f=>{
-    const cfg=CFG[S.unit][f.k];
-    if(cfg){ f.sl.min=cfg.min; f.sl.max=cfg.max; f.sl.step=cfg.step; }
-    const v=f.get();
-    f.num.value = isFinite(v) ? +v.toFixed(1) : '';
-    if(f.sl){ f.sl.value = isFinite(v)?v: (cfg?cfg.min:0); paint(f.sl); }
-  });
-  $('slLevel').value=S.level; paint($('slLevel'));
-  $('slRes').value=S.reserve; paint($('slRes'));
-  $('uDist').textContent=c.du; $('uEff').textContent=c.eu; $('uTank').textContent=c.fu; $('uPrice').textContent=c.pu;
-  const lv=$('lvlVal'); lv.textContent=fmt(S.level,0)+'%';
-  lv.className='fval '+(S.level>50?'':S.level>=20?'mid':'low');
-  $('resVal').textContent=fmt(S.reserve,0)+'%';
-}
-FIELDS.forEach(f=>{
-  f.num.addEventListener('input',()=>{
-    const v=parseFloat(f.num.value);
-    if(isNaN(v)||v<0){ S[f.k]=NaN; }
-    else{ f.set(v); if(f.sl){ f.sl.value=v; paint(f.sl); } }
+/* ================= EVENT ================= */
+fields.forEach(f=>{
+  f.num.addEventListener('input', ()=>{
+    const v = parseFloat(f.num.value);
+    if(isNaN(v) || v<0){ state[f.key] = NaN; }
+    else { setFrom(f.key, v); f.sl.value = v; paintSlider(f.sl); }
     recalc();
   });
-  if(f.sl) f.sl.addEventListener('input',()=>{
-    f.set(parseFloat(f.sl.value));
-    f.num.value=parseFloat(f.sl.value).toFixed(1).replace(/\.0$/,'');
-    paint(f.sl); recalc();
+  f.sl.addEventListener('input', ()=>{
+    setFrom(f.key, parseFloat(f.sl.value));
+    f.num.value = parseFloat(f.sl.value).toFixed(1).replace(/\.0$/,'');
+    paintSlider(f.sl); recalc();
   });
 });
-$('slLevel').addEventListener('input',e=>{ S.level=parseFloat(e.target.value); paint(e.target); syncLevelOnly(); recalc(); });
-$('slRes').addEventListener('input',e=>{ S.reserve=parseFloat(e.target.value); paint(e.target); $('resVal').textContent=fmt(S.reserve,0)+'%'; recalc(); });
-function syncLevelOnly(){
-  const lv=$('lvlVal'); lv.textContent=fmt(S.level,0)+'%';
-  lv.className='fval '+(S.level>50?'':S.level>=20?'mid':'low');
-}
+$('slLevel').addEventListener('input', e=>{ state.level = parseFloat(e.target.value); paintSlider(e.target); recalc(); });
 
-/* chip rute populer */
-function buildChips(){
-  const c=CFG[S.unit];
-  $('chips').innerHTML=c.presets.map((p,i)=>`<button type="button" class="chip" data-i="${i}">${p.l} · ${fmt(p.v,0)} ${c.du}</button>`).join('');
-  $('chips').querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{
-    const p=c.presets[+b.dataset.i];
-    FIELDS[0].set(p.v); syncInputs(); recalc();
-    const w=$('inDist').closest('.numbox');
-    w.classList.add('flash'); setTimeout(()=>w.classList.remove('flash'),650);
-  }));
-}
-
-/* toggle satuan */
 function setUnit(u){
-  if(S.unit===u) return;
-  S.unit=u;
-  $('seg').classList.toggle('met',u==='metric');
-  $('seg').classList.toggle('imp',u==='imperial');
-  $('segMet').classList.toggle('active',u==='metric'); $('segMet').setAttribute('aria-pressed',u==='metric');
-  $('segImp').classList.toggle('active',u==='imperial'); $('segImp').setAttribute('aria-pressed',u==='imperial');
+  if(state.unit===u) return;
+  state.unit = u;
+  $('utoggle').classList.toggle('imp', u==='imperial');
+  $('utoggle').classList.toggle('met', u==='metric');
+  $('uImp').classList.toggle('active', u==='imperial');
+  $('uMet').classList.toggle('active', u==='metric');
+  $('uImp').setAttribute('aria-pressed', u==='imperial');
+  $('uMet').setAttribute('aria-pressed', u==='metric');
   syncInputs(); buildChips(); recalc();
 }
-$('segMet').addEventListener('click',()=>setUnit('metric'));
-$('segImp').addEventListener('click',()=>setUnit('imperial'));
+$('uImp').addEventListener('click', ()=>setUnit('imperial'));
+$('uMet').addEventListener('click', ()=>setUnit('metric'));
 
-/* salin ringkasan */
-$('copyBtn').addEventListener('click',async()=>{
-  const c=CFG[S.unit], kpl=100/S.eff;
-  const p=planTrip(S.dist,kpl,S.tank,S.level/100,S.reserve/100);
-  const t=[
-    'FUELSTOP — Ringkasan Perjalanan',
-    `Jarak: ${fD(dDist())} ${c.du} · Konsumsi: ${fmt(dEff(),1)} ${c.eu}`,
-    `Tangki: ${fV(dTank())} ${c.fu} (isi ${fmt(S.level,0)}%) · Cadangan: ${S.reserve}%`,
-    `→ ${p.count} stop SPBU · stop pertama ≈ ${fD(dLen(p.firstDist))} ${c.du} · antar stop ≈ ${fD(dLen(p.uDist))} ${c.du}`,
-    `→ Total konsumsi ${fV(dVol(p.F))} ${c.fu} · dibeli ${fV(dVol(p.totalAdd))} ${c.fu}`+(S.price>0?` · ≈ ${fRp(p.totalAdd*S.price)}`:'')
-  ].join('\n');
-  const btn=$('copyBtn');
-  try{ await navigator.clipboard.writeText(t); }
-  catch(e){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
-  btn.textContent='TERSALIN ✓'; btn.classList.add('ok');
-  setTimeout(()=>{ btn.textContent='SALIN RINGKASAN'; btn.classList.remove('ok'); },1600);
-});
-
-/* ================= PERSISTENSI ================= */
-function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
-function load(){
-  try{
-    const d=JSON.parse(localStorage.getItem(KEY)); if(!d) return;
-    if(d.unit==='metric'||d.unit==='imperial') S.unit=d.unit;
-    ['dist','eff','tank','price'].forEach(k=>{ if(typeof d[k]==='number'&&isFinite(d[k])&&d[k]>=0) S[k]=d[k]; });
-    if(typeof d.level==='number'&&isFinite(d.level)) S.level=Math.min(100,Math.max(0,d.level));
-    if(typeof d.reserve==='number'&&isFinite(d.reserve)) S.reserve=Math.min(40,Math.max(0,d.reserve));
-  }catch(e){}
-}
-
-/* ================= REVEAL & INIT ================= */
-const io=new IntersectionObserver(es=>es.forEach(e=>{
-  if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
-}),{threshold:.08});
-document.querySelectorAll('.rv').forEach(el=>io.observe(el));
-
-load(); syncInputs(); buildChips(); recalc();
+/* ================= INIT ================= */
+syncInputs(); buildChips(); recalc();
 </script>
 </body>
 </html>
